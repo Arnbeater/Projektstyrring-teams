@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0F1117"/>
+  <rect x="32" y="32" width="448" height="448" rx="72" fill="#181B25"/>
+  <!-- Gantt bars -->
+  <rect x="80" y="140" width="200" height="36" rx="8" fill="#FF6B35"/>
+  <rect x="80" y="140" width="120" height="36" rx="8" fill="#FF6B35" opacity="0.6"/>
+  <rect x="140" y="200" width="240" height="36" rx="8" fill="#4B8BF5"/>
+  <rect x="140" y="200" width="80" height="36" rx="8" fill="#4B8BF5" opacity="0.6"/>
+  <rect x="100" y="260" width="180" height="36" rx="8" fill="#34C77B"/>
+  <rect x="100" y="260" width="180" height="36" rx="8" fill="#34C77B" opacity="0.6"/>
+  <!-- Milestone diamond -->
+  <rect x="348" y="148" width="20" height="20" rx="3" transform="rotate(45 358 158)" fill="#F5C542"/>
+  <!-- PM label -->
+  <text x="256" y="380" font-family="system-ui,sans-serif" font-size="72" font-weight="700" fill="#FF6B35" text-anchor="middle" letter-spacing="8">PM</text>
+</svg>
