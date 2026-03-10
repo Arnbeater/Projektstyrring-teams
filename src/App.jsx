@@ -5771,29 +5771,6 @@ function ListView({ tasks, tk, onSelTask }) {
     </div>
   );
 }
-Det du skal gøre nu
-Åbn src/App.jsx
-
-Erstat hele filen med koden ovenfor
-
-Kør dit build igen
-
-npm run dev
-eller
-
-npm start
-To ting du skal forvente
-Du kan få fejl, hvis dine Firestore rules er for stramme eller for åbne på en måde der ikke matcher den nye datamodel
-
-Dine gamle dokumenter i Firestore bruger sandsynligvis stadig memberEmails og createdBy, mens den nye kode bruger memberUids og createdByUid
-
-Så gamle workspaces/projekter kan kræve en lille migration.
-
-Det vigtigste for dig lige nu
-Den her fil er lavet til at kunne paste direkte ind i App.jsx, men hvis du vil, tager jeg næste skridt og laver en migration helper til dine gamle Firestore-data, så dine eksisterende workspaces også virker med den nye model.
-
-
-
 
 
 Passkey Name
