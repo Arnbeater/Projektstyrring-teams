@@ -279,9 +279,9 @@ export default function App() {
       <div style={{ minHeight:"100vh", background:"#FAFAFA", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-display)" }}>
         <style>{css}</style>
         <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:48, marginBottom:12 }}>🔗</div>
-          <div style={{ fontSize:18, fontWeight:600, color:"#374151" }}>Link ikke fundet</div>
-          <div style={{ fontSize:13, color:"#9CA3AF", marginTop:4 }}>Dette delelink er ugyldigt eller udløbet</div>
+          <div style={{ fontSize:48, marginBottom:12 }}>🕵️</div>
+          <div style={{ fontSize:18, fontWeight:600, color:"#374151" }}>Hmm, det link kender vi ikke</div>
+          <div style={{ fontSize:13, color:"#9CA3AF", marginTop:4 }}>Enten er linket forkert, eller også har nogen trukket stikket</div>
           <a href={window.location.pathname} style={{ display:"inline-block", marginTop:16, color:"#FF6B35", fontSize:13 }}>← Gå til login</a>
         </div>
       </div>
@@ -932,9 +932,9 @@ function SharedGanttView({ data }) {
       {/* Header */}
       <div className="no-print" style={{ background:"#FFF", borderBottom:"1px solid #E5E7EB", padding:"16px 24px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <div>
-          <div style={{ fontFamily:"var(--font-mono)", fontSize:10, fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:"#FF6B35", marginBottom:2 }}>Delt projekt</div>
+          <div style={{ fontFamily:"var(--font-mono)", fontSize:10, fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:"#FF6B35", marginBottom:2 }}>Nogen har styr på tingene ✨</div>
           <h1 style={{ fontSize:22, fontWeight:600, color:"#111", letterSpacing:"-0.02em" }}>{projectName}</h1>
-          <div style={{ fontSize:11, color:"#9CA3AF", marginTop:2 }}>Delt af {sharedBy} · {sharedAt ? new Date(sharedAt).toLocaleDateString("da-DK") : ""}</div>
+          <div style={{ fontSize:11, color:"#9CA3AF", marginTop:2 }}>Delt med kærlighed af {sharedBy} · {sharedAt ? new Date(sharedAt).toLocaleDateString("da-DK") : ""}</div>
         </div>
         <button className="btn" onClick={() => {
           const gantt = document.querySelector('.gantt-print-area');
@@ -947,7 +947,7 @@ function SharedGanttView({ data }) {
       <div style={{ display:"none" }} className="print-title">
         <style>{`.print-title { display: none; } @media print { .print-title { display: block !important; padding: 16px 12px 8px; } }`}</style>
         <div style={{ fontSize:20, fontWeight:700, color:"#111", marginBottom:2 }}>{projectName}</div>
-        <div style={{ fontSize:11, color:"#666" }}>Gantt-diagram · delt af {sharedBy}</div>
+        <div style={{ fontSize:11, color:"#666" }}>Gantt-diagram · fra {sharedBy} med omhu</div>
       </div>
 
       {/* Gantt */}
@@ -1315,7 +1315,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
             };
             if (!isDemo) await setDoc(doc(fbDb, "shared", shareId), shareData);
             const url = `${window.location.origin}${window.location.pathname}?share=${shareId}`;
-            try { await navigator.clipboard.writeText(url); alert("Link kopieret!\n\n" + url + "\n\nDel dette link med din chef. De kan se Gantt-diagrammet uden login."); }
+            try { await navigator.clipboard.writeText(url); alert("Link kopieret! 🎉\n\n" + url + "\n\nSend det til hvem du vil. De kan se Gantt-diagrammet uden login.\n\nPS: Du ser professionel ud lige nu."); }
             catch(e) { prompt("Kopiér dette link:", url); }
           }}>🔗 Del Gantt</button>
         </>}
