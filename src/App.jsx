@@ -323,7 +323,11 @@ export default function App() {
     if (!user || isDemo) return;
     const q = query(collection(fbDb, "workspaces"), where("memberEmails", "array-contains", user.email));
     const unsub = onSnapshot(q, snap => {
-      setWorkspaces(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log("Workspaces loaded:", list.length, "for user:", user.email);
+      setWorkspaces(list);
+    }, err => {
+      console.error("Workspace load error:", err);
     });
     return () => unsub();
   }, [user, isDemo]);
@@ -331,9 +335,13 @@ export default function App() {
   // Load projects when workspace is selected
   useEffect(() => {
     if (!activeWs || isDemo) return;
-    const q = query(collection(fbDb, "workspaces", activeWs.id, "projects"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, snap => {
-      setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const colRef = collection(fbDb, "workspaces", activeWs.id, "projects");
+    const unsub = onSnapshot(colRef, snap => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log("Projects loaded:", list.length, "for workspace:", activeWs.id);
+      setProjects(list);
+    }, err => {
+      console.error("Projects load error:", err);
     });
     return () => unsub();
   }, [activeWs, isDemo]);
