@@ -122,22 +122,71 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; h
 @keyframes pulse { 0%,100% { opacity:0.4; } 50% { opacity:1; } }
 
 @media print {
-  @page { size: landscape; margin: 10mm; }
-  body { background: #FFF !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: landscape; margin: 8mm; }
+  body { background: #FFF !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
   .no-print { display: none !important; }
-  .detail-panel-wrap > div:last-child { display: none !important; }
-  * { overflow: visible !important; }
-  .gantt-print-area { 
-    position: static !important; 
-    height: auto !important; 
+  
+  /* Unfold all containers */
+  *, *::before, *::after {
     overflow: visible !important;
-    flex: none !important;
-  }
-  .gantt-print-area * { 
     position: static !important;
-    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    flex-shrink: 0 !important;
   }
-  .gantt-print-area [style*="sticky"] { position: static !important; }
+  
+  /* Preserve flex layout for gantt rows */
+  .gantt-print-area { 
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: max-content !important;
+  }
+  .gantt-print-area > div {
+    display: block !important;
+  }
+  .gantt-print-area div[style*="display: flex"],
+  .gantt-print-area div[style*="display:flex"] {
+    display: flex !important;
+  }
+  
+  /* Re-enable relative positioning for bars */
+  .gantt-print-area div[style*="position: relative"],
+  .gantt-print-area div[style*="position:relative"] {
+    position: relative !important;
+  }
+  .gantt-print-area div[style*="position: absolute"],
+  .gantt-print-area div[style*="position:absolute"] {
+    position: absolute !important;
+  }
+  
+  /* Fix row heights */
+  .gantt-print-area div[style*="height: 32px"],
+  .gantt-print-area div[style*="height:32px"] { height: 32px !important; }
+  .gantt-print-area div[style*="height: 28px"],
+  .gantt-print-area div[style*="height:28px"] { height: 28px !important; }
+  .gantt-print-area div[style*="height: 24px"],
+  .gantt-print-area div[style*="height:24px"] { height: 24px !important; }
+  .gantt-print-area div[style*="height: 22px"],
+  .gantt-print-area div[style*="height:22px"] { height: 22px !important; }
+  .gantt-print-area div[style*="height: 36px"],
+  .gantt-print-area div[style*="height:36px"] { height: 36px !important; }
+  .gantt-print-area div[style*="height: 20px"],
+  .gantt-print-area div[style*="height:20px"] { height: 20px !important; }
+  .gantt-print-area div[style*="height: 82px"],
+  .gantt-print-area div[style*="height:82px"] { height: 82px !important; }
+  
+  /* Hide detail panel and modals */
+  div[style*="width: 460px"],
+  div[style*="width:460px"],
+  div[style*="position: fixed"],
+  div[style*="position:fixed"] { display: none !important; }
+  
+  /* Scale down to fit page */
+  .gantt-print-area {
+    transform: scale(0.7) !important;
+    transform-origin: top left !important;
+  }
 }
 `;
 
