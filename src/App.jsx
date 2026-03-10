@@ -838,6 +838,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
   const [showAddTask, setShowAddTask] = useState(false);
   const [showAddMs, setShowAddMs] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const savingRef = useRef(false);
 
   const projRef = () => isDemo ? null : doc(fbDb, "workspaces", workspaceId, "projects", projectId);
 
@@ -854,6 +855,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       return;
     }
     const unsub = onSnapshot(projRef(), snap => {
+      if (savingRef.current) return;
       if (snap.exists()) {
         const data = snap.data();
         setProjectName(data.projectName || "Nyt Projekt");
@@ -877,7 +879,9 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
     if (isDemo) {
       setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...data } : p));
     } else {
+      savingRef.current = true;
       await setDoc(projRef(), data, { merge: true });
+      setTimeout(() => { savingRef.current = false; }, 500);
     }
   }
 
@@ -1305,8 +1309,13 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
 // SUB-COMPONENTS
 // ============================================================
 function Stat({ label, value, color }) {
+  const bgMap = {
+    "var(--green)": "rgba(52,199,123,0.12)",
+    "var(--blue)": "rgba(75,139,245,0.12)",
+    "var(--red)": "rgba(245,75,94,0.12)",
+  };
   return (
-    <div style={{ fontFamily:"var(--font-mono)", fontSize:11, padding:"4px 10px", borderRadius:4, display:"flex", alignItems:"center", gap:5, background: color ? color.replace(")",",0.12)").replace("var(","rgba(").replace("--green","52,199,123").replace("--blue","75,139,245").replace("--red","245,75,94") : "var(--surface3)" }}>
+    <div style={{ fontFamily:"var(--font-mono)", fontSize:11, padding:"4px 10px", borderRadius:4, display:"flex", alignItems:"center", gap:5, background: bgMap[color] || "var(--surface3)" }}>
       {color && <div style={{ width:6, height:6, borderRadius:"50%", background:color }} />}
       <span style={{ color: color || "var(--text-muted)" }}>{label} {value}</span>
     </div>
