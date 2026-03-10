@@ -1095,13 +1095,13 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
                 <div style={{ fontSize:20, fontWeight:700, color:"#111", marginBottom:2 }}>{projectName}</div>
                 <div style={{ fontSize:11, color:"#666" }}>Gantt-diagram · udskrevet {new Date().toLocaleDateString("da-DK")}</div>
               </div>
-              <div className="gantt-print-area" style={{ display:"flex", minHeight:"100%", background:"#FAFAFA" }}>
+              <div className="gantt-print-area" style={{ display:"flex", height:"100%", background:"#FAFAFA", overflow:"auto" }}>
                 {/* Sidebar */}
                 <div style={{ width:260, minWidth:260, background:"#FFF", borderRight:"1px solid #E5E7EB", flexShrink:0, position:"sticky", left:0, zIndex:10 }}>
-                  {/* Header spacer */}
-                  <div style={{ height:82, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA", display:"flex", alignItems:"flex-end", padding:"0 12px 6px", fontSize:10, fontWeight:600, color:"#999", letterSpacing:"0.08em", textTransform:"uppercase" }}>Tidslinje</div>
-                  {/* Milestone labels row */}
-                  <div style={{ height:32, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA" }} />
+                  {/* Header spacer - sticky */}
+                  <div style={{ height:82, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA", display:"flex", alignItems:"flex-end", padding:"0 12px 6px", fontSize:10, fontWeight:600, color:"#999", letterSpacing:"0.08em", textTransform:"uppercase", position:"sticky", top:0, zIndex:2 }}>Tidslinje</div>
+                  {/* Milestone labels row spacer - sticky */}
+                  <div style={{ height:32, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA", position:"sticky", top:82, zIndex:2 }} />
                   
                   {/* Group sections */}
                   {groupNames.map(gName => {
@@ -1140,9 +1140,9 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
                 </div>
 
                 {/* Chart area */}
-                <div style={{ flex:1, position:"relative", overflow:"auto" }}>
-                  {/* Month + Week headers */}
-                  <div style={{ position:"sticky", top:0, zIndex:5 }}>
+                <div style={{ flex:1, position:"relative" }}>
+                  {/* Month + Week + Date headers - sticky */}
+                  <div style={{ position:"sticky", top:0, zIndex:5, background:"#FFF" }}>
                     {/* Month row */}
                     <div style={{ height:24, display:"flex", background:"#F3F4F6", borderBottom:"1px solid #E5E7EB" }}>
                       {(() => {
@@ -1179,8 +1179,8 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
                     </div>
                   </div>
 
-                  {/* Milestone labels row */}
-                  <div style={{ height:32, display:"flex", position:"relative", borderBottom:"1px solid #E5E7EB" }}>
+                  {/* Milestone labels row - sticky below header */}
+                  <div style={{ height:32, display:"flex", position:"sticky", top:82, zIndex:4, background:"#FFF", borderBottom:"1px solid #E5E7EB" }}>
                     {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:32, borderRight:"1px solid #F3F4F6" }} />)}
                     {milestones.map(m => {
                       const mi = days.indexOf(m.date);
