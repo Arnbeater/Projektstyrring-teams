@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, getDocs, query, orderBy, where } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, deleteDoc, getDocs, query, orderBy, where } from "firebase/firestore";
 
 // ============================================================
 // 🔧 FIREBASE CONFIG
@@ -249,6 +249,46 @@ function useDemoMode() {
 // MAIN APP — Auth + Workspace + Project router
 // ============================================================
 export default function App() {
+  // Check for share link FIRST
+  const [shareData, setShareData] = useState(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const shareId = new URLSearchParams(window.location.search).get("share");
+
+  useEffect(() => {
+    if (!shareId) return;
+    setShareLoading(true);
+    if (useDemoMode()) { setShareLoading(false); return; }
+    getDoc(doc(fbDb, "shared", shareId)).then(snap => {
+      if (snap.exists()) setShareData(snap.data());
+      setShareLoading(false);
+    }).catch(() => setShareLoading(false));
+  }, [shareId]);
+
+  // Render shared view if share link
+  if (shareId) {
+    if (shareLoading) return (
+      <div style={{ minHeight:"100vh", background:"#FAFAFA", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-display)" }}>
+        <style>{css}</style>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:32, fontFamily:"var(--font-mono)", fontWeight:700, color:"#FF6B35", animation:"pulse 1.5s infinite" }}>PM</div>
+          <div style={{ fontSize:12, color:"#999", marginTop:8 }}>Indlæser delt projekt...</div>
+        </div>
+      </div>
+    );
+    if (!shareData) return (
+      <div style={{ minHeight:"100vh", background:"#FAFAFA", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-display)" }}>
+        <style>{css}</style>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>🔗</div>
+          <div style={{ fontSize:18, fontWeight:600, color:"#374151" }}>Link ikke fundet</div>
+          <div style={{ fontSize:13, color:"#9CA3AF", marginTop:4 }}>Dette delelink er ugyldigt eller udløbet</div>
+          <a href={window.location.pathname} style={{ display:"inline-block", marginTop:16, color:"#FF6B35", fontSize:13 }}>← Gå til login</a>
+        </div>
+      </div>
+    );
+    return <SharedGanttView data={shareData} />;
+  }
+
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState("");
@@ -864,7 +904,147 @@ function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onClose })
 }
 
 // ============================================================
-// PROJECT VIEW — Single project (existing logic)
+// SHARED GANTT VIEW (read-only, no login required)
+// ============================================================
+function SharedGanttView({ data }) {
+  const { projectName, tasks = [], milestones = [], sharedBy, sharedAt } = data;
+  const tk = td();
+  const dw = 40;
+
+  // Gantt range
+  const allDates = [];
+  tasks.forEach(t => { if(t.start) allDates.push(t.start); if(t.end) allDates.push(t.end); });
+  milestones.forEach(m => { if(m.date) allDates.push(m.date); });
+  allDates.sort();
+  const rangeStart = allDates.length ? addD(allDates[0], -3) : addD(tk, -3);
+  const rangeEnd = allDates.length ? addD(allDates[allDates.length-1], 5) : addD(tk, 30);
+  const days = []; let cur = rangeStart; while(cur <= rangeEnd) { days.push(cur); cur = addD(cur, 1); }
+  const weeks = getWeeks(days);
+
+  const groupNames = [...new Set(tasks.map(t => t.group || "").filter(Boolean))];
+  const ungrouped = tasks.filter(t => !t.group);
+  const groupColorMap = {};
+  groupNames.forEach((g, i) => { groupColorMap[g] = GROUP_COLORS[i % GROUP_COLORS.length]; });
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#FAFAFA", fontFamily:"var(--font-display)" }}>
+      <style>{css}</style>
+      {/* Header */}
+      <div className="no-print" style={{ background:"#FFF", borderBottom:"1px solid #E5E7EB", padding:"16px 24px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <div>
+          <div style={{ fontFamily:"var(--font-mono)", fontSize:10, fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:"#FF6B35", marginBottom:2 }}>Delt projekt</div>
+          <h1 style={{ fontSize:22, fontWeight:600, color:"#111", letterSpacing:"-0.02em" }}>{projectName}</h1>
+          <div style={{ fontSize:11, color:"#9CA3AF", marginTop:2 }}>Delt af {sharedBy} · {sharedAt ? new Date(sharedAt).toLocaleDateString("da-DK") : ""}</div>
+        </div>
+        <button className="btn" onClick={() => {
+          const gantt = document.querySelector('.gantt-print-area');
+          if (gantt) { const s = Math.min(1, 1100 / gantt.scrollWidth); gantt.style.setProperty('--print-scale', s); }
+          window.print();
+        }} style={{ background:"#F3F4F6", color:"#374151", border:"1px solid #E5E7EB", padding:"8px 16px", fontSize:13 }}>🖨 Udskriv</button>
+      </div>
+
+      {/* Print title */}
+      <div style={{ display:"none" }} className="print-title">
+        <style>{`.print-title { display: none; } @media print { .print-title { display: block !important; padding: 16px 12px 8px; } }`}</style>
+        <div style={{ fontSize:20, fontWeight:700, color:"#111", marginBottom:2 }}>{projectName}</div>
+        <div style={{ fontSize:11, color:"#666" }}>Gantt-diagram · delt af {sharedBy}</div>
+      </div>
+
+      {/* Gantt */}
+      <div className="gantt-print-area" style={{ display:"flex", height:"calc(100vh - 80px)", background:"#FAFAFA", overflow:"auto" }}>
+        {/* Sidebar */}
+        <div style={{ width:260, minWidth:260, background:"#FFF", borderRight:"1px solid #E5E7EB", flexShrink:0, position:"sticky", left:0, zIndex:10 }}>
+          <div style={{ height:82, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA", display:"flex", alignItems:"flex-end", padding:"0 12px 6px", fontSize:10, fontWeight:600, color:"#999", letterSpacing:"0.08em", textTransform:"uppercase", position:"sticky", top:0, zIndex:2 }}>Tidslinje</div>
+          <div style={{ height:32, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA", position:"sticky", top:82, zIndex:2 }} />
+          {groupNames.map(gName => {
+            const gc = groupColorMap[gName];
+            const gTasks = tasks.filter(t => t.group === gName);
+            return (
+              <div key={gName}>
+                <div style={{ height:28, display:"flex", alignItems:"center", padding:"0 12px", background:gc.bg, borderBottom:`1px solid ${gc.border}`, borderLeft:`3px solid ${gc.bar}` }}>
+                  <span style={{ fontSize:12, fontWeight:600, color:gc.text }}>{gName}</span>
+                </div>
+                {gTasks.map(t => (
+                  <div key={t.id} style={{ height:32, display:"flex", alignItems:"center", padding:"0 12px 0 18px", borderBottom:"1px solid #F3F4F6" }}>
+                    <span style={{ fontSize:11, color:"#374151" }}>{t.name}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+          {ungrouped.length > 0 && groupNames.length > 0 && (
+            <div style={{ height:28, display:"flex", alignItems:"center", padding:"0 12px", background:"#F9FAFB", borderBottom:"1px solid #E5E7EB" }}>
+              <span style={{ fontSize:12, fontWeight:600, color:"#6B7280" }}>Uden gruppe</span>
+            </div>
+          )}
+          {ungrouped.map(t => (
+            <div key={t.id} style={{ height:32, display:"flex", alignItems:"center", padding:"0 12px 0 18px", borderBottom:"1px solid #F3F4F6" }}>
+              <span style={{ fontSize:11, color:"#374151" }}>{t.name}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart */}
+        <div style={{ flex:1, position:"relative" }}>
+          <div style={{ position:"sticky", top:0, zIndex:5, background:"#FFF" }}>
+            <div style={{ height:24, display:"flex", background:"#F3F4F6", borderBottom:"1px solid #E5E7EB" }}>
+              {(() => { let pm=""; return weeks.map((w,i) => { const mo=toD(w.days[0]).toLocaleDateString("da-DK",{month:"long"}); const s=mo!==pm; pm=mo; return <div key={i} style={{ minWidth:w.days.length*dw, display:"flex", alignItems:"center", paddingLeft:4, borderRight:"1px solid #E5E7EB" }}>{s&&<span style={{ fontSize:11, fontWeight:600, color:"#374151", textTransform:"capitalize" }}>{mo}</span>}</div>; }); })()}
+            </div>
+            <div style={{ height:22, display:"flex", background:"#FAFAFA", borderBottom:"1px solid #E5E7EB" }}>
+              {weeks.map((w,i) => <div key={i} style={{ minWidth:w.days.length*dw, display:"flex", alignItems:"center", justifyContent:"center", borderRight:"1px solid #E5E7EB", fontSize:9, fontWeight:500, color:"#9CA3AF" }}>uge {String(w.num).padStart(2,"0")}</div>)}
+            </div>
+            <div style={{ height:36, display:"flex", background:"#FFF", borderBottom:"1px solid #E5E7EB" }}>
+              {days.map(day => { const d=toD(day),dow=d.getDay(),we=dow===0||dow===6,isT=day===tk; return (
+                <div key={day} style={{ minWidth:dw, width:dw, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", borderRight:"1px solid #F3F4F6", background:isT?"rgba(239,68,68,0.06)":we?"rgba(0,0,0,0.015)":"transparent" }}>
+                  <div style={{ fontSize:10, fontWeight:isT?700:500, color:isT?"#EF4444":we?"#C0C0C0":"#6B7280" }}>{d.getDate()}</div>
+                  <div style={{ fontSize:8, fontWeight:500, color:we?"#D1D5DB":"#9CA3AF", textTransform:"uppercase" }}>{DK[dow]}</div>
+                </div>); })}
+            </div>
+          </div>
+          {/* Milestone labels */}
+          <div style={{ height:32, display:"flex", position:"sticky", top:82, zIndex:4, background:"#FFF", borderBottom:"1px solid #E5E7EB" }}>
+            {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:32, borderRight:"1px solid #F3F4F6" }} />)}
+            {milestones.map(m => { const mi=days.indexOf(m.date); if(mi<0) return null; return <div key={m.id} style={{ position:"absolute", top:4, left:mi*dw+dw/2, transform:"translateX(-50%)", textAlign:"center", zIndex:3 }}><div style={{ fontSize:10, fontWeight:700, color:"#4338CA", whiteSpace:"nowrap" }}>{m.name}</div><div style={{ fontSize:9, color:"#6366F1", fontFamily:"var(--font-mono)" }}>{fmtDs(m.date)}</div></div>; })}
+          </div>
+          {/* Chart body */}
+          <div style={{ position:"relative" }}>
+            {milestones.map(m => { const mi=days.indexOf(m.date); if(mi<0) return null; return <div key={`ml-${m.id}`} style={{ position:"absolute", top:0, bottom:0, left:mi*dw+dw/2, width:1, background:"#C7D2FE", zIndex:1, pointerEvents:"none" }} />; })}
+            {days.indexOf(tk)>=0 && <div style={{ position:"absolute", top:0, bottom:0, width:2, background:"#EF4444", zIndex:4, pointerEvents:"none", left:days.indexOf(tk)*dw+dw/2, opacity:0.6 }} />}
+            {days.map((day,di) => { if(!isWe(day)) return null; return <div key={`we-${day}`} style={{ position:"absolute", top:0, bottom:0, left:di*dw, width:dw, background:"rgba(0,0,0,0.02)", zIndex:0, pointerEvents:"none" }} />; })}
+
+            {groupNames.map(gName => {
+              const gc = groupColorMap[gName];
+              const gTasks = tasks.filter(t => t.group === gName);
+              return (
+                <div key={gName}>
+                  <div style={{ height:28, background:gc.bg, borderBottom:`1px solid ${gc.border}` }}>{days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:28, display:"inline-block" }} />)}</div>
+                  {gTasks.map(t => {
+                    const si=days.indexOf(t.start),ei=days.indexOf(t.end);
+                    return <div key={t.id} style={{ height:32, display:"flex", position:"relative", borderBottom:"1px solid #F3F4F6" }}>
+                      {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:32 }} />)}
+                      {si>=0&&ei>=0&&<div style={{ position:"absolute", height:20, top:6, left:si*dw+2, width:Math.max((ei-si+1)*dw-4,16), borderRadius:10, background:gc.bar, opacity:0.8, display:"flex", alignItems:"center", padding:"0 6px", fontSize:9, fontWeight:600, color:gc.text, zIndex:2 }}><div style={{ position:"absolute", left:0, top:0, bottom:0, width:`${t.progress||0}%`, borderRadius:10, background:"rgba(255,255,255,0.4)" }} />{(ei-si+1)*dw>80&&<span style={{ position:"relative", zIndex:1 }}>{fmtDs(t.end)}</span>}</div>}
+                    </div>;
+                  })}
+                </div>
+              );
+            })}
+            {ungrouped.length > 0 && groupNames.length > 0 && <div style={{ height:28, background:"#F9FAFB", borderBottom:"1px solid #E5E7EB" }}>{days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:28, display:"inline-block" }} />)}</div>}
+            {ungrouped.map(t => {
+              const si=days.indexOf(t.start),ei=days.indexOf(t.end);
+              return <div key={t.id} style={{ height:32, display:"flex", position:"relative", borderBottom:"1px solid #F3F4F6" }}>
+                {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:32 }} />)}
+                {si>=0&&ei>=0&&<div style={{ position:"absolute", height:20, top:6, left:si*dw+2, width:Math.max((ei-si+1)*dw-4,16), borderRadius:10, background:"#D1D5DB", opacity:0.7, zIndex:2 }} />}
+              </div>;
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// PROJECT VIEW — Single project (full edit)
 // ============================================================
 function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjects, onBack, onLogout, wsName }) {
   const [projectName, setProjectName] = useState("Nyt Projekt");
@@ -1125,6 +1305,19 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
             }
             window.print();
           }}>🖨 Udskriv Gantt</button>
+          <button className="btn btn-dark btn-sm" onClick={async () => {
+            const shareId = btoa(`${workspaceId}:${projectId}`).replace(/=/g,"");
+            const shareData = {
+              workspaceId, projectId,
+              projectName, tasks, milestones,
+              sharedBy: user?.email,
+              sharedAt: new Date().toISOString()
+            };
+            if (!isDemo) await setDoc(doc(fbDb, "shared", shareId), shareData);
+            const url = `${window.location.origin}${window.location.pathname}?share=${shareId}`;
+            try { await navigator.clipboard.writeText(url); alert("Link kopieret!\n\n" + url + "\n\nDel dette link med din chef. De kan se Gantt-diagrammet uden login."); }
+            catch(e) { prompt("Kopiér dette link:", url); }
+          }}>🔗 Del Gantt</button>
         </>}
       </div>
 
