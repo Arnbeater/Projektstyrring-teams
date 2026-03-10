@@ -362,8 +362,11 @@ export default function App() {
   }
   async function handleLogout() {
     if (!isDemo) await signOut(fbAuth);
-    setUser(isDemo ? null : user); setActiveWs(null); setActiveProjectId(null); setProjects([]);
-    if (isDemo) setUser(null);
+    setUser(null);
+    setActiveWs(null);
+    setActiveProjectId(null);
+    setProjects([]);
+    setWorkspaces([]);
   }
 
   // Workspace CRUD
@@ -516,7 +519,7 @@ export default function App() {
 
   // ---- PROJECT LIST (inside workspace) ----
   if (activeWs) {
-    const visibleProjects = projects.filter(p => !p.members || p.members.includes(user?.email));
+    const visibleProjects = projects;
     return (
       <div style={{ minHeight:"100vh", background:"var(--bg)", fontFamily:"var(--font-display)" }}>
         <style>{css}</style>
@@ -844,7 +847,7 @@ function NewProjectModal({ onCreate, onClose }) {
 // ============================================================
 // MEMBERS MODAL
 // ============================================================
-function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onClose }) {
+function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onTransferOwner, onClose }) {
   const [newEmail, setNewEmail] = useState("");
   const ref = useRef(null);
 
@@ -854,7 +857,7 @@ function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onClose })
 
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-      <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, width:440, maxWidth:"90vw", boxShadow:"0 4px 24px rgba(0,0,0,0.3)", animation:"slideUp 0.2s ease" }}>
+      <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, width:440, maxWidth:"90vw", boxShadow:"0 4px 24px rgba(0,0,0,0.3)", animation:"slideUp 0.2s ease", maxHeight:"80vh", overflowY:"auto" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
           <div style={{ fontSize:18, fontWeight:600 }}>Projektmedlemmer</div>
           <button className="btn btn-dark btn-sm" onClick={onClose}>✕</button>
@@ -872,7 +875,10 @@ function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onClose })
                 {email === createdBy && <div style={{ fontSize:10, color:"var(--accent)", fontFamily:"var(--font-mono)" }}>EJER</div>}
               </div>
               {isOwner && email !== createdBy && (
-                <button className="btn btn-danger btn-sm" onClick={() => onRemove(email)} style={{ fontSize:10, padding:"2px 8px" }}>Fjern</button>
+                <div style={{ display:"flex", gap:4 }}>
+                  <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${email} til ejer af projektet?\n\nDu mister ejerrettigheder.`)) onTransferOwner(email); }} style={{ fontSize:9, padding:"2px 6px" }} title="Overdrag ejerskab">👑</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => onRemove(email)} style={{ fontSize:10, padding:"2px 8px" }}>Fjern</button>
+                </div>
               )}
             </div>
           ))}
@@ -895,7 +901,7 @@ function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onClose })
 
         {!isOwner && (
           <div style={{ fontSize:11, color:"var(--text-dim)", textAlign:"center", padding:"8px 0" }}>
-            Kun projektejeren kan tilføje og fjerne medlemmer
+            Kun projektejeren kan administrere medlemmer
           </div>
         )}
       </div>
@@ -1124,6 +1130,15 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       setProjects(prev => prev.map(p => p.id === projectId ? { ...p, members: newMembers } : p));
     } else {
       await setDoc(projRef(), { members: newMembers }, { merge: true });
+    }
+  }
+
+  async function transferOwner(newOwnerEmail) {
+    setCreatedBy(newOwnerEmail);
+    if (isDemo) {
+      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, createdBy: newOwnerEmail } : p));
+    } else {
+      await setDoc(projRef(), { createdBy: newOwnerEmail }, { merge: true });
     }
   }
 
@@ -1542,7 +1557,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       {/* MODALS */}
       {showAddTask && <AddTaskModal members={members} groups={groupNames} onAdd={addTask} onClose={()=>setShowAddTask(false)} />}
       {showAddMs && <AddMsModal onAdd={addMilestone} onClose={()=>setShowAddMs(false)} />}
-      {showMembers && <MembersModal members={members} createdBy={createdBy} isOwner={isOwner} onAdd={addMember} onRemove={removeMember} onClose={() => setShowMembers(false)} />}
+      {showMembers && <MembersModal members={members} createdBy={createdBy} isOwner={isOwner} onAdd={addMember} onRemove={removeMember} onTransferOwner={transferOwner} onClose={() => setShowMembers(false)} />}
     </div>
   );
 }
