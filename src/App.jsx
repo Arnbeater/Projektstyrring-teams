@@ -122,71 +122,62 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; h
 @keyframes pulse { 0%,100% { opacity:0.4; } 50% { opacity:1; } }
 
 @media print {
-  @page { size: landscape; margin: 8mm; }
+  @page { size: landscape; margin: 6mm; }
   body { background: #FFF !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
   .no-print { display: none !important; }
   
   /* Unfold all containers */
   *, *::before, *::after {
     overflow: visible !important;
-    position: static !important;
-    height: auto !important;
     max-height: none !important;
-    min-height: 0 !important;
-    flex-shrink: 0 !important;
   }
   
-  /* Preserve flex layout for gantt rows */
-  .gantt-print-area { 
+  /* Remove fixed/sticky positioning */
+  div[style*="position: sticky"],
+  div[style*="position:sticky"],
+  div[style*="position: fixed"],
+  div[style*="position:fixed"] {
+    position: static !important;
+  }
+  
+  /* Remove height constraints on wrappers */
+  div[style*="height: 100vh"],
+  div[style*="height:100vh"],
+  div[style*="height: 100%"],
+  div[style*="height:100%"] {
+    height: auto !important;
+  }
+  
+  /* Gantt area: show everything, scale to fit */
+  .gantt-print-area {
     display: flex !important;
-    flex-wrap: nowrap !important;
+    overflow: visible !important;
+    height: auto !important;
     width: max-content !important;
+    transform: scale(var(--print-scale, 0.5)) !important;
+    transform-origin: top left !important;
   }
-  .gantt-print-area > div {
-    display: block !important;
-  }
+  
+  /* Preserve flex and positioning inside gantt */  
   .gantt-print-area div[style*="display: flex"],
-  .gantt-print-area div[style*="display:flex"] {
-    display: flex !important;
-  }
-  
-  /* Re-enable relative positioning for bars */
+  .gantt-print-area div[style*="display:flex"] { display: flex !important; }
   .gantt-print-area div[style*="position: relative"],
-  .gantt-print-area div[style*="position:relative"] {
-    position: relative !important;
-  }
+  .gantt-print-area div[style*="position:relative"] { position: relative !important; }
   .gantt-print-area div[style*="position: absolute"],
-  .gantt-print-area div[style*="position:absolute"] {
-    position: absolute !important;
-  }
+  .gantt-print-area div[style*="position:absolute"] { position: absolute !important; }
   
-  /* Fix row heights */
-  .gantt-print-area div[style*="height: 32px"],
-  .gantt-print-area div[style*="height:32px"] { height: 32px !important; }
-  .gantt-print-area div[style*="height: 28px"],
-  .gantt-print-area div[style*="height:28px"] { height: 28px !important; }
-  .gantt-print-area div[style*="height: 24px"],
-  .gantt-print-area div[style*="height:24px"] { height: 24px !important; }
-  .gantt-print-area div[style*="height: 22px"],
-  .gantt-print-area div[style*="height:22px"] { height: 22px !important; }
-  .gantt-print-area div[style*="height: 36px"],
-  .gantt-print-area div[style*="height:36px"] { height: 36px !important; }
-  .gantt-print-area div[style*="height: 20px"],
-  .gantt-print-area div[style*="height:20px"] { height: 20px !important; }
-  .gantt-print-area div[style*="height: 82px"],
-  .gantt-print-area div[style*="height:82px"] { height: 82px !important; }
+  /* Preserve specific row heights */
+  .gantt-print-area div[style*="height: 82px"] { height: 82px !important; }
+  .gantt-print-area div[style*="height: 36px"] { height: 36px !important; }
+  .gantt-print-area div[style*="height: 32px"] { height: 32px !important; }
+  .gantt-print-area div[style*="height: 28px"] { height: 28px !important; }
+  .gantt-print-area div[style*="height: 24px"] { height: 24px !important; }
+  .gantt-print-area div[style*="height: 22px"] { height: 22px !important; }
+  .gantt-print-area div[style*="height: 20px"] { height: 20px !important; }
   
   /* Hide detail panel and modals */
   div[style*="width: 460px"],
-  div[style*="width:460px"],
-  div[style*="position: fixed"],
-  div[style*="position:fixed"] { display: none !important; }
-  
-  /* Scale down to fit page */
-  .gantt-print-area {
-    transform: scale(0.7) !important;
-    transform-origin: top left !important;
-  }
+  div[style*="width:460px"] { display: none !important; }
 }
 `;
 
@@ -1124,7 +1115,16 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
         </div>}
         {view === "gantt" && <>
           <div style={{ width:1, height:24, background:"var(--border)", margin:"0 4px" }} />
-          <button className="btn btn-dark btn-sm" onClick={()=>window.print()}>🖨 Udskriv Gantt</button>
+          <button className="btn btn-dark btn-sm" onClick={() => {
+            const gantt = document.querySelector('.gantt-print-area');
+            if (gantt) {
+              const totalW = gantt.scrollWidth;
+              const pageW = 1100; // approx landscape A4 minus margins
+              const scale = Math.min(1, pageW / totalW);
+              gantt.style.setProperty('--print-scale', scale);
+            }
+            window.print();
+          }}>🖨 Udskriv Gantt</button>
         </>}
       </div>
 
