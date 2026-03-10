@@ -120,6 +120,25 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; h
 @keyframes slideUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 @keyframes pulse { 0%,100% { opacity:0.4; } 50% { opacity:1; } }
+
+@media print {
+  @page { size: landscape; margin: 10mm; }
+  body { background: #FFF !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .no-print { display: none !important; }
+  .detail-panel-wrap > div:last-child { display: none !important; }
+  * { overflow: visible !important; }
+  .gantt-print-area { 
+    position: static !important; 
+    height: auto !important; 
+    overflow: visible !important;
+    flex: none !important;
+  }
+  .gantt-print-area * { 
+    position: static !important;
+    overflow: visible !important;
+  }
+  .gantt-print-area [style*="sticky"] { position: static !important; }
+}
 `;
 
 // ============================================================
@@ -1004,7 +1023,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       <style>{css}</style>
 
       {/* HEADER */}
-      <div style={{ background:"var(--surface)", borderBottom:"1px solid var(--border)", padding:"12px 24px", flexShrink:0, position:"relative", overflow:"hidden" }}>
+      <div className="no-print" style={{ background:"var(--surface)", borderBottom:"1px solid var(--border)", padding:"12px 24px", flexShrink:0, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,107,53,0.04) 0%,transparent 50%,rgba(75,139,245,0.03) 100%)", pointerEvents:"none" }} />
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", position:"relative", zIndex:1, flexWrap:"wrap", gap:10 }}>
           <div style={{ display:"flex", alignItems:"center", gap:14 }}>
@@ -1038,7 +1057,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       </div>
 
       {/* TOOLBAR */}
-      <div style={{ background:"var(--surface)", borderBottom:"1px solid var(--border)", padding:"8px 24px", display:"flex", gap:10, alignItems:"center", flexShrink:0, flexWrap:"wrap" }}>
+      <div className="no-print" style={{ background:"var(--surface)", borderBottom:"1px solid var(--border)", padding:"8px 24px", display:"flex", gap:10, alignItems:"center", flexShrink:0, flexWrap:"wrap" }}>
         <button className="btn btn-accent btn-sm" onClick={()=>setShowAddTask(true)}>+ Opgave</button>
         <button className="btn btn-dark btn-sm" onClick={()=>setShowAddMs(true)}>◆ Milepæl</button>
         <div style={{ width:1, height:24, background:"var(--border)", margin:"0 4px" }} />
@@ -1050,6 +1069,10 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
           <span style={{ color:"var(--text-muted)" }}>Fremgang </span>
           <span style={{ fontWeight:700, color:"var(--accent)" }}>{Math.round(don/tot*100)}%</span>
         </div>}
+        {view === "gantt" && <>
+          <div style={{ width:1, height:24, background:"var(--border)", margin:"0 4px" }} />
+          <button className="btn btn-dark btn-sm" onClick={()=>window.print()}>🖨 Udskriv Gantt</button>
+        </>}
       </div>
 
       {/* BODY */}
@@ -1061,7 +1084,14 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
             tasks.length === 0 && milestones.length === 0 ? (
               <Empty icon="◧" title="Ingen opgaver endnu" sub="Tilføj din første opgave for at se Gantt-diagrammet" />
             ) : (
-              <div style={{ display:"flex", minHeight:"100%", background:"#FAFAFA" }}>
+              <>
+              {/* Print-only header */}
+              <div style={{ display:"none" }} className="print-title">
+                <style>{`.print-title { display: none; } @media print { .print-title { display: block !important; padding: 16px 12px 8px; } }`}</style>
+                <div style={{ fontSize:20, fontWeight:700, color:"#111", marginBottom:2 }}>{projectName}</div>
+                <div style={{ fontSize:11, color:"#666" }}>Gantt-diagram · udskrevet {new Date().toLocaleDateString("da-DK")}</div>
+              </div>
+              <div className="gantt-print-area" style={{ display:"flex", minHeight:"100%", background:"#FAFAFA" }}>
                 {/* Sidebar */}
                 <div style={{ width:260, minWidth:260, background:"#FFF", borderRight:"1px solid #E5E7EB", flexShrink:0, position:"sticky", left:0, zIndex:10 }}>
                   {/* Header spacer */}
@@ -1243,6 +1273,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
                   </div>
                 </div>
               </div>
+              </>
             )
           )}
 
