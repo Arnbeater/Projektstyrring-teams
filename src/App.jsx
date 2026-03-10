@@ -51,7 +51,7 @@ const GROUP_COLORS = [
 
 // Helpers
 const toD = s => s ? new Date(s+"T00:00:00") : null;
-const toS = d => d ? ${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} : "";
+const toS = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}` : "";
 const td = () => toS(new Date());
 const addD = (s,n) => { const d=toD(s); d.setDate(d.getDate()+n); return toS(d); };
 const fmtD = s => { if(!s) return "—"; const d=toD(s); return ${d.getDate()}. ${MK[d.getMonth()]} ${d.getFullYear()}; };
