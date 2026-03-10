@@ -38,6 +38,16 @@ const PRI = ["Lav","Normal","Høj","Kritisk"];
 const PC = { Lav:"#6B7089", Normal:"#4B8BF5", Høj:"#FF6B35", Kritisk:"#F54B5E" };
 const DK = ["søn","man","tir","ons","tor","fre","lør"];
 const MK = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+const GROUP_COLORS = [
+  { name:"Rød", bg:"#FEE2E2", bar:"#F87171", border:"#FECACA", text:"#B91C1C" },
+  { name:"Grøn", bg:"#DCFCE7", bar:"#86EFAC", border:"#BBF7D0", text:"#166534" },
+  { name:"Blå", bg:"#DBEAFE", bar:"#93C5FD", border:"#BFDBFE", text:"#1E40AF" },
+  { name:"Orange", bg:"#FFF7ED", bar:"#FDBA74", border:"#FED7AA", text:"#C2410C" },
+  { name:"Lilla", bg:"#F3E8FF", bar:"#C4B5FD", border:"#DDD6FE", text:"#6D28D9" },
+  { name:"Cyan", bg:"#ECFEFF", bar:"#67E8F9", border:"#A5F3FC", text:"#0E7490" },
+  { name:"Pink", bg:"#FDF2F8", bar:"#F9A8D4", border:"#FBCFE8", text:"#BE185D" },
+  { name:"Gul", bg:"#FEFCE8", bar:"#FDE047", border:"#FEF08A", text:"#A16207" },
+];
 
 // Helpers
 const toD = s => s ? new Date(s+"T00:00:00") : null;
@@ -48,6 +58,23 @@ const fmtD = s => { if(!s) return "—"; const d=toD(s); return `${d.getDate()}.
 const fmtDs = s => { if(!s) return ""; const d=toD(s); return `${d.getDate()} ${MK[d.getMonth()]}`; };
 const isWe = s => { if(!s) return false; const d=toD(s).getDay(); return d===0||d===6; };
 const weDays = (s,e) => { if(!s||!e) return 0; let c=s,n=0; while(c<=e){if(isWe(c))n++;c=addD(c,1)} return n; };
+const getWeekNum = s => { const d=toD(s); const t=new Date(d.valueOf()); t.setDate(t.getDate()+3-(t.getDay()+6)%7); const w=new Date(t.getFullYear(),0,4); return 1+Math.round(((t.getTime()-w.getTime())/86400000-3+(w.getDay()+6)%7)/7); };
+const getWeeks = (days) => {
+  const weeks = [];
+  let cur = null;
+  days.forEach(day => {
+    const wn = getWeekNum(day);
+    const d = toD(day);
+    const mo = MK[d.getMonth()];
+    if (!cur || cur.num !== wn) {
+      cur = { num: wn, month: mo, days: [day] };
+      weeks.push(cur);
+    } else {
+      cur.days.push(day);
+    }
+  });
+  return weeks;
+};
 
 // ============================================================
 // STYLES
@@ -878,11 +905,11 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
     saveProject(null, null, name);
   }
 
-  function addTask(name, start, end, desc, owner) {
+  function addTask(name, start, end, desc, owner, group) {
     updateTasks(prev => [...prev, {
       id: Date.now(), name: name || "Ny opgave", start: start || td(), end: end || addD(td(),7),
       status: "Ikke startet", priority: "Normal", owner: owner || "", desc: desc || "",
-      progress: 0, color: TC[tasks.length % TC.length], createdBy: user?.email || ""
+      group: group || "", progress: 0, color: TC[tasks.length % TC.length], createdBy: user?.email || ""
     }]);
     setShowAddTask(false);
   }
@@ -964,6 +991,13 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
   const rng = ganttRange();
   const days = daysArr(rng.s, rng.e);
   const dw = 40;
+  const weeks = getWeeks(days);
+  
+  // Derive groups from tasks
+  const groupNames = [...new Set(tasks.map(t => t.group || "").filter(Boolean))];
+  const ungrouped = tasks.filter(t => !t.group);
+  const groupColorMap = {};
+  groupNames.forEach((g, i) => { groupColorMap[g] = GROUP_COLORS[i % GROUP_COLORS.length]; });
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100vh", fontFamily:"var(--font-display)" }}>
@@ -1027,91 +1061,185 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
             tasks.length === 0 && milestones.length === 0 ? (
               <Empty icon="◧" title="Ingen opgaver endnu" sub="Tilføj din første opgave for at se Gantt-diagrammet" />
             ) : (
-              <div style={{ display:"flex", minHeight:"100%" }}>
+              <div style={{ display:"flex", minHeight:"100%", background:"#FAFAFA" }}>
                 {/* Sidebar */}
-                <div style={{ width:300, minWidth:300, background:"var(--surface)", borderRight:"1px solid var(--border)", flexShrink:0, position:"sticky", left:0, zIndex:10 }}>
-                  <div style={{ height:56, display:"flex", alignItems:"center", padding:"0 16px", borderBottom:"1px solid var(--border)", fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", color:"var(--text-muted)", background:"var(--surface2)", gap:6 }}>
-                    Opgaver <span style={{ fontWeight:400, letterSpacing:0, textTransform:"none", color:"var(--text-dim)", fontSize:10 }}>· træk ⠿</span>
-                  </div>
-                  {tasks.map(t => {
-                    const ss = SS[t.status];
+                <div style={{ width:260, minWidth:260, background:"#FFF", borderRight:"1px solid #E5E7EB", flexShrink:0, position:"sticky", left:0, zIndex:10 }}>
+                  {/* Header spacer */}
+                  <div style={{ height:82, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA", display:"flex", alignItems:"flex-end", padding:"0 12px 6px", fontSize:10, fontWeight:600, color:"#999", letterSpacing:"0.08em", textTransform:"uppercase" }}>Tidslinje</div>
+                  {/* Milestone labels row */}
+                  <div style={{ height:32, borderBottom:"1px solid #E5E7EB", background:"#FAFAFA" }} />
+                  
+                  {/* Group sections */}
+                  {groupNames.map(gName => {
+                    const gc = groupColorMap[gName];
+                    const gTasks = tasks.filter(t => t.group === gName);
                     return (
-                      <div key={t.id} draggable onDragStart={e=>handleDragStart(e,t.id)} onDragEnd={handleDragEnd} onDragOver={e=>handleDragOver(e,t.id)}
-                        onClick={()=>{setSelTask(t.id);setSelMs(null)}}
-                        style={{ height:44, display:"flex", alignItems:"center", padding:"0 8px 0 4px", gap:6, borderBottom:"1px solid var(--border)", cursor:"pointer", background:selTask===t.id?"var(--accent-soft)":"transparent", transition:"background 0.1s" }}>
-                        <span style={{ cursor:"grab", color:"var(--text-dim)", fontSize:11, padding:"6px 3px", fontFamily:"var(--font-mono)" }}>⠿</span>
-                        <div style={{ width:10, height:10, borderRadius:3, background:t.color, flexShrink:0 }} />
-                        <div style={{ flex:1, fontSize:13, fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</div>
-                        <div style={{ fontFamily:"var(--font-mono)", fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:3, background:ss.bg, color:ss.c, textTransform:"uppercase" }}>{ss.s}</div>
+                      <div key={gName}>
+                        {/* Group header */}
+                        <div style={{ height:28, display:"flex", alignItems:"center", padding:"0 12px", background:gc.bg, borderBottom:`1px solid ${gc.border}`, borderLeft:`3px solid ${gc.bar}` }}>
+                          <span style={{ fontSize:12, fontWeight:600, color:gc.text }}>{gName}</span>
+                        </div>
+                        {/* Group tasks */}
+                        {gTasks.map(t => (
+                          <div key={t.id} onClick={()=>{setSelTask(t.id);setSelMs(null)}}
+                            style={{ height:32, display:"flex", alignItems:"center", padding:"0 12px 0 18px", borderBottom:"1px solid #F3F4F6", cursor:"pointer", background:selTask===t.id?"#F0F4FF":"#FFF", transition:"background 0.1s", borderLeft:`3px solid transparent` }}>
+                            <span style={{ fontSize:11, color:"#374151", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
+                          </div>
+                        ))}
                       </div>
                     );
                   })}
-                  {milestones.map(m => (
-                    <div key={m.id} onClick={()=>{setSelMs(m.id);setSelTask(null)}}
-                      style={{ height:36, display:"flex", alignItems:"center", padding:"0 12px 0 28px", gap:6, borderBottom:"1px solid var(--border)", fontSize:11, color:"var(--yellow)", fontWeight:500, cursor:"pointer" }}>
-                      <span>◆</span>
-                      <span style={{ flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{m.name}</span>
-                      <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--text-muted)" }}>{fmtDs(m.date)}</span>
+                  {/* Ungrouped tasks */}
+                  {ungrouped.length > 0 && (
+                    <div>
+                      {groupNames.length > 0 && <div style={{ height:28, display:"flex", alignItems:"center", padding:"0 12px", background:"#F9FAFB", borderBottom:"1px solid #E5E7EB" }}>
+                        <span style={{ fontSize:12, fontWeight:600, color:"#6B7280" }}>Uden gruppe</span>
+                      </div>}
+                      {ungrouped.map(t => (
+                        <div key={t.id} onClick={()=>{setSelTask(t.id);setSelMs(null)}}
+                          style={{ height:32, display:"flex", alignItems:"center", padding:"0 12px 0 18px", borderBottom:"1px solid #F3F4F6", cursor:"pointer", background:selTask===t.id?"#F0F4FF":"#FFF", transition:"background 0.1s" }}>
+                          <span style={{ fontSize:11, color:"#374151", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
 
-                {/* Chart */}
-                <div style={{ flex:1, position:"relative" }}>
-                  {/* Day headers */}
-                  <div style={{ height:56, display:"flex", borderBottom:"1px solid var(--border)", background:"var(--surface2)", position:"sticky", top:0, zIndex:5 }}>
-                    {days.map((day,i) => {
-                      const d = toD(day), dow = d.getDay(), we = dow===0||dow===6, isT = day===tk;
-                      let ml = ""; if (i===0 || toD(days[i-1]).getMonth() !== d.getMonth()) ml = MK[d.getMonth()].toUpperCase();
-                      return (
-                        <div key={day} style={{ minWidth:dw, width:dw, height:56, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", borderRight:"1px solid var(--border)", fontSize:10, color:"var(--text-muted)", position:"relative", background: isT?"var(--accent-soft)":we?"rgba(255,255,255,0.015)":"transparent" }}>
-                          {ml && <div style={{ position:"absolute", top:2, left:4, fontSize:8, fontWeight:700, color:"var(--accent)", letterSpacing:"0.1em" }}>{ml}</div>}
-                          <div style={{ fontWeight:600, fontSize:12, color:"var(--text)" }}>{d.getDate()}</div>
-                          <div style={{ fontSize:9, fontWeight:500, letterSpacing:"0.05em", textTransform:"uppercase" }}>{DK[dow]}</div>
+                {/* Chart area */}
+                <div style={{ flex:1, position:"relative", overflow:"auto" }}>
+                  {/* Month + Week headers */}
+                  <div style={{ position:"sticky", top:0, zIndex:5 }}>
+                    {/* Month row */}
+                    <div style={{ height:24, display:"flex", background:"#F3F4F6", borderBottom:"1px solid #E5E7EB" }}>
+                      {(() => {
+                        let prevMo = "";
+                        return weeks.map((w, wi) => {
+                          const mo = toD(w.days[0]).toLocaleDateString("da-DK", { month:"long" });
+                          const showMo = mo !== prevMo;
+                          prevMo = mo;
+                          return <div key={wi} style={{ minWidth: w.days.length * dw, display:"flex", alignItems:"center", paddingLeft:4, borderRight:"1px solid #E5E7EB" }}>
+                            {showMo && <span style={{ fontSize:11, fontWeight:600, color:"#374151", textTransform:"capitalize" }}>{mo}</span>}
+                          </div>;
+                        });
+                      })()}
+                    </div>
+                    {/* Week number row */}
+                    <div style={{ height:22, display:"flex", background:"#FAFAFA", borderBottom:"1px solid #E5E7EB" }}>
+                      {weeks.map((w, wi) => (
+                        <div key={wi} style={{ minWidth: w.days.length * dw, display:"flex", alignItems:"center", justifyContent:"center", borderRight:"1px solid #E5E7EB", fontSize:9, fontWeight:500, color:"#9CA3AF" }}>
+                          uge {String(w.num).padStart(2,"0")}
                         </div>
-                      );
+                      ))}
+                    </div>
+                    {/* Individual dates row */}
+                    <div style={{ height:36, display:"flex", background:"#FFF", borderBottom:"1px solid #E5E7EB" }}>
+                      {days.map(day => {
+                        const d = toD(day), dow = d.getDay(), we = dow===0||dow===6, isT = day===tk;
+                        return (
+                          <div key={day} style={{ minWidth:dw, width:dw, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", borderRight:"1px solid #F3F4F6", background: isT ? "rgba(239,68,68,0.06)" : we ? "rgba(0,0,0,0.015)" : "transparent" }}>
+                            <div style={{ fontSize:10, fontWeight: isT ? 700 : 500, color: isT ? "#EF4444" : we ? "#C0C0C0" : "#6B7280" }}>{d.getDate()}</div>
+                            <div style={{ fontSize:8, fontWeight:500, color: we ? "#D1D5DB" : "#9CA3AF", textTransform:"uppercase" }}>{DK[dow]}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Milestone labels row */}
+                  <div style={{ height:32, display:"flex", position:"relative", borderBottom:"1px solid #E5E7EB" }}>
+                    {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:32, borderRight:"1px solid #F3F4F6" }} />)}
+                    {milestones.map(m => {
+                      const mi = days.indexOf(m.date);
+                      if (mi < 0) return null;
+                      return <div key={m.id} onClick={()=>{setSelMs(m.id);setSelTask(null)}} style={{ position:"absolute", top:4, left:mi*dw+dw/2, transform:"translateX(-50%)", cursor:"pointer", textAlign:"center", zIndex:3 }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:"#4338CA", whiteSpace:"nowrap" }}>{m.name}</div>
+                        <div style={{ fontSize:9, color:"#6366F1", fontFamily:"var(--font-mono)" }}>{fmtDs(m.date)}</div>
+                      </div>;
                     })}
                   </div>
 
-                  {/* Body */}
+                  {/* Chart body with groups */}
                   <div style={{ position:"relative" }}>
-                    {/* Today line */}
-                    {days.indexOf(tk) >= 0 && (
-                      <div style={{ position:"absolute", top:0, bottom:0, width:2, background:"var(--accent)", zIndex:4, pointerEvents:"none", left: days.indexOf(tk)*dw+dw/2 }}>
-                        <div style={{ position:"absolute", top:-18, left:-14, fontSize:7, fontWeight:700, letterSpacing:"0.1em", color:"var(--accent)", fontFamily:"var(--font-mono)" }}>I DAG</div>
-                      </div>
-                    )}
-
-                    {/* Task rows */}
-                    {tasks.map(t => {
-                      const si = days.indexOf(t.start), ei = days.indexOf(t.end);
-                      return (
-                        <div key={t.id} style={{ height:44, display:"flex", position:"relative", borderBottom:"1px solid var(--border)" }}>
-                          {days.map(day => {
-                            const d = toD(day), we = d.getDay()===0||d.getDay()===6;
-                            return <div key={day} style={{ minWidth:dw, width:dw, height:44, borderRight:"1px solid rgba(42,46,61,0.5)", background:we?"rgba(255,255,255,0.01)":"transparent" }} />;
-                          })}
-                          {si >= 0 && ei >= 0 && (
-                            <div onClick={()=>{setSelTask(t.id);setSelMs(null)}}
-                              style={{ position:"absolute", height:24, top:10, left:si*dw+2, width:Math.max((ei-si+1)*dw-4,20), borderRadius:5, display:"flex", alignItems:"center", padding:"0 8px", fontSize:10, fontWeight:600, color:"#FFF", cursor:"pointer", background:t.color, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", zIndex:2, transition:"filter 0.12s" }}>
-                              <div style={{ position:"absolute", left:0, top:0, bottom:0, width:`${t.progress}%`, borderRadius:5, opacity:0.25, background:"#FFF" }} />
-                              <span style={{ position:"relative", zIndex:1 }}>{t.name}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Milestone rows */}
+                    {/* Milestone vertical lines spanning full height */}
                     {milestones.map(m => {
                       const mi = days.indexOf(m.date);
+                      if (mi < 0) return null;
+                      return <div key={`ml-${m.id}`} style={{ position:"absolute", top:0, bottom:0, left:mi*dw+dw/2, width:1, background:"#C7D2FE", zIndex:1, pointerEvents:"none" }}>
+                        <div style={{ position:"absolute", top:0, width:1, height:"100%", background:"#C7D2FE", borderLeft:"1px dashed #A5B4FC" }} />
+                      </div>;
+                    })}
+
+                    {/* Today line */}
+                    {days.indexOf(tk) >= 0 && (
+                      <div style={{ position:"absolute", top:0, bottom:0, width:2, background:"#EF4444", zIndex:4, pointerEvents:"none", left:days.indexOf(tk)*dw+dw/2, opacity:0.6 }} />
+                    )}
+
+                    {/* Weekend shading columns */}
+                    {days.map((day, di) => {
+                      if (!isWe(day)) return null;
+                      return <div key={`we-${day}`} style={{ position:"absolute", top:0, bottom:0, left:di*dw, width:dw, background:"rgba(0,0,0,0.02)", zIndex:0, pointerEvents:"none" }} />;
+                    })}
+
+                    {/* Group sections with task rows */}
+                    {groupNames.map(gName => {
+                      const gc = groupColorMap[gName];
+                      const gTasks = tasks.filter(t => t.group === gName);
                       return (
-                        <div key={m.id} style={{ height:36, display:"flex", position:"relative", borderBottom:"1px solid var(--border)" }}>
-                          {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:36, borderRight:"1px solid rgba(42,46,61,0.5)" }} />)}
-                          {mi >= 0 && <div onClick={()=>{setSelMs(m.id);setSelTask(null)}} style={{ position:"absolute", top:9, left:mi*dw+dw/2-8, width:16, height:16, transform:"rotate(45deg)", borderRadius:3, background:m.color, zIndex:3, cursor:"pointer" }} />}
+                        <div key={gName}>
+                          {/* Group header row */}
+                          <div style={{ height:28, display:"flex", position:"relative", background:gc.bg, borderBottom:`1px solid ${gc.border}` }}>
+                            {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:28 }} />)}
+                          </div>
+                          {/* Task rows */}
+                          {gTasks.map(t => {
+                            const si = days.indexOf(t.start), ei = days.indexOf(t.end);
+                            return (
+                              <div key={t.id} style={{ height:32, display:"flex", position:"relative", borderBottom:"1px solid #F3F4F6" }}>
+                                {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:32 }} />)}
+                                {si >= 0 && ei >= 0 && (
+                                  <div onClick={()=>{setSelTask(t.id);setSelMs(null)}}
+                                    style={{ position:"absolute", height:20, top:6, left:si*dw+2, width:Math.max((ei-si+1)*dw-4,16), borderRadius:10, display:"flex", alignItems:"center", padding:"0 6px", fontSize:9, fontWeight:600, color:gc.text, cursor:"pointer", background:gc.bar, opacity:0.8, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", zIndex:2, transition:"opacity 0.12s" }}
+                                    onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0.8"}>
+                                    {/* Progress fill */}
+                                    <div style={{ position:"absolute", left:0, top:0, bottom:0, width:`${t.progress}%`, borderRadius:10, background:"rgba(255,255,255,0.4)" }} />
+                                    {/* Date label */}
+                                    {(ei-si+1)*dw > 80 && <span style={{ position:"relative", zIndex:1 }}>{fmtDs(t.end)}</span>}
+                                  </div>
+                                )}
+                                {/* Milestone dot on task */}
+                                {si >= 0 && si === ei && (
+                                  <div style={{ position:"absolute", top:10, left:si*dw+dw/2-6, width:12, height:12, borderRadius:"50%", background:gc.bar, border:"2px solid #FFF", zIndex:3 }} />
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}
+                    
+                    {/* Ungrouped tasks */}
+                    {ungrouped.length > 0 && (
+                      <div>
+                        {groupNames.length > 0 && <div style={{ height:28, display:"flex", background:"#F9FAFB", borderBottom:"1px solid #E5E7EB" }}>
+                          {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:28 }} />)}
+                        </div>}
+                        {ungrouped.map(t => {
+                          const si = days.indexOf(t.start), ei = days.indexOf(t.end);
+                          return (
+                            <div key={t.id} style={{ height:32, display:"flex", position:"relative", borderBottom:"1px solid #F3F4F6" }}>
+                              {days.map(day => <div key={day} style={{ minWidth:dw, width:dw, height:32 }} />)}
+                              {si >= 0 && ei >= 0 && (
+                                <div onClick={()=>{setSelTask(t.id);setSelMs(null)}}
+                                  style={{ position:"absolute", height:20, top:6, left:si*dw+2, width:Math.max((ei-si+1)*dw-4,16), borderRadius:10, display:"flex", alignItems:"center", padding:"0 6px", fontSize:9, fontWeight:500, color:"#374151", cursor:"pointer", background:"#D1D5DB", opacity:0.7, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", zIndex:2 }}
+                                  onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0.7"}>
+                                  <div style={{ position:"absolute", left:0, top:0, bottom:0, width:`${t.progress}%`, borderRadius:10, background:"rgba(255,255,255,0.5)" }} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1127,7 +1255,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
 
         {/* DETAIL PANEL */}
         {selTaskObj && (
-          <DetailTask task={selTaskObj} members={members} onUpdate={updTask} onDelete={delTask} onClose={()=>setSelTask(null)} />
+          <DetailTask task={selTaskObj} members={members} groups={groupNames} onUpdate={updTask} onDelete={delTask} onClose={()=>setSelTask(null)} />
         )}
         {selMsObj && (
           <DetailMs ms={selMsObj} onUpdate={updMs} onDelete={delMs} onClose={()=>setSelMs(null)} />
@@ -1135,7 +1263,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       </div>
 
       {/* MODALS */}
-      {showAddTask && <AddTaskModal members={members} onAdd={addTask} onClose={()=>setShowAddTask(false)} />}
+      {showAddTask && <AddTaskModal members={members} groups={groupNames} onAdd={addTask} onClose={()=>setShowAddTask(false)} />}
       {showAddMs && <AddMsModal onAdd={addMilestone} onClose={()=>setShowAddMs(false)} />}
       {showMembers && <MembersModal members={members} createdBy={createdBy} isOwner={isOwner} onAdd={addMember} onRemove={removeMember} onClose={() => setShowMembers(false)} />}
     </div>
@@ -1269,12 +1397,13 @@ function ListView({ tasks, tk, onSelTask }) {
   );
 }
 
-function DetailTask({ task: t, members, onUpdate, onDelete, onClose }) {
+function DetailTask({ task: t, members, groups, onUpdate, onDelete, onClose }) {
   const ss = SS[t.status];
   const wd = weDays(t.start, t.end);
   const dur = t.start && t.end ? Math.max(1, Math.round((toD(t.end)-toD(t.start))/86400000)+1) : 0;
   const [name, setName] = useState(t.name);
   const [desc, setDesc] = useState(t.desc);
+  const [newGroup, setNewGroup] = useState("");
   useEffect(() => { setName(t.name); setDesc(t.desc); }, [t.id]);
 
   return (
@@ -1294,6 +1423,16 @@ function DetailTask({ task: t, members, onUpdate, onDelete, onClose }) {
       <div style={{ padding:20 }}>
         <Field label="Opgavenavn">
           <input className="fl-input" style={{ fontSize:15, fontWeight:600 }} value={name} onChange={e=>{setName(e.target.value);onUpdate(t.id,"name",e.target.value)}} />
+        </Field>
+        <Field label="Gruppe">
+          <div style={{ display:"flex", gap:6 }}>
+            <select className="fl-select" value={t.group || ""} onChange={e=>onUpdate(t.id,"group",e.target.value)} style={{ flex:1 }}>
+              <option value="">Ingen gruppe</option>
+              {(groups || []).map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <input className="fl-input" value={newGroup} onChange={e=>setNewGroup(e.target.value)} placeholder="Ny gruppe..." style={{ width:120 }}
+              onKeyDown={e => { if(e.key==="Enter" && newGroup.trim()) { onUpdate(t.id,"group",newGroup.trim()); setNewGroup(""); }}} />
+          </div>
         </Field>
         <Field label="Kort beskrivelse">
           <textarea className="fl-textarea" placeholder="Beskriv opgavens indhold, formål og leverancer..." value={desc} onChange={e=>{setDesc(e.target.value);onUpdate(t.id,"desc",e.target.value)}} />
@@ -1386,20 +1525,33 @@ function Field({ label, children }) {
   );
 }
 
-function AddTaskModal({ members, onAdd, onClose }) {
+function AddTaskModal({ members, groups, onAdd, onClose }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [start, setStart] = useState(td());
   const [end, setEnd] = useState(addD(td(),7));
   const [owner, setOwner] = useState("");
+  const [group, setGroup] = useState("");
+  const [newGroup, setNewGroup] = useState("");
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); }, []);
+
+  const finalGroup = newGroup.trim() || group;
 
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
       <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, width:460, maxWidth:"90vw", boxShadow:"0 4px 24px rgba(0,0,0,0.3)", animation:"slideUp 0.2s ease" }}>
         <div style={{ fontSize:18, fontWeight:600, marginBottom:16 }}>Ny opgave</div>
-        <Field label="Opgavenavn"><input ref={ref} className="fl-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Hvad skal laves?" onKeyDown={e=>e.key==="Enter"&&onAdd(name,start,end,desc,owner)} /></Field>
+        <Field label="Opgavenavn"><input ref={ref} className="fl-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Hvad skal laves?" onKeyDown={e=>e.key==="Enter"&&onAdd(name,start,end,desc,owner,finalGroup)} /></Field>
+        <Field label="Gruppe">
+          <div style={{ display:"flex", gap:6 }}>
+            <select className="fl-select" value={group} onChange={e=>setGroup(e.target.value)} style={{ flex:1 }}>
+              <option value="">Ingen gruppe</option>
+              {(groups || []).map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <input className="fl-input" value={newGroup} onChange={e=>setNewGroup(e.target.value)} placeholder="Ny..." style={{ width:100 }} />
+          </div>
+        </Field>
         <Field label="Kort beskrivelse"><textarea className="fl-textarea" value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Beskriv opgaven..." rows={2} /></Field>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
           <Field label="Start"><input type="date" className="fl-input" value={start} onChange={e=>setStart(e.target.value)} /></Field>
@@ -1413,7 +1565,7 @@ function AddTaskModal({ members, onAdd, onClose }) {
         </Field>
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
           <button className="btn btn-dark" onClick={onClose}>Annuller</button>
-          <button className="btn btn-accent" onClick={()=>onAdd(name,start,end,desc,owner)}>Tilføj</button>
+          <button className="btn btn-accent" onClick={()=>onAdd(name,start,end,desc,owner,finalGroup)}>Tilføj</button>
         </div>
       </div>
     </div>
