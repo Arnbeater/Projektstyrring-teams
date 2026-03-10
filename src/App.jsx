@@ -1512,7 +1512,9 @@ function DetailTask({ task: t, members, groups, onUpdate, onDelete, onClose }) {
       </div>
     </div>
   );
-}({ ms: m, onUpdate, onDelete, onClose }) {
+}
+
+function DetailMs({ ms: m, onUpdate, onDelete, onClose }) {
   const [name, setName] = useState(m.name);
   const [desc, setDesc] = useState(m.desc);
   useEffect(() => { setName(m.name); setDesc(m.desc); }, [m.id]);
