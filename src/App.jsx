@@ -1508,12 +1508,11 @@ function DetailTask({ task: t, members, groups, onUpdate, onDelete, onClose }) {
           Varighed: {dur} dage{wd > 0 && ` · heraf ${wd} weekenddag${wd>1?"e":""}`}
           {t.createdBy && <> · oprettet af {t.createdBy}</>}
         </div>
+        <button className="btn btn-accent" onClick={onClose} style={{ width:"100%", marginTop:16, padding:"10px 14px", fontSize:14 }}>✓ Færdig</button>
       </div>
     </div>
   );
-}
-
-function DetailMs({ ms: m, onUpdate, onDelete, onClose }) {
+}({ ms: m, onUpdate, onDelete, onClose }) {
   const [name, setName] = useState(m.name);
   const [desc, setDesc] = useState(m.desc);
   useEffect(() => { setName(m.name); setDesc(m.desc); }, [m.id]);
@@ -1542,6 +1541,7 @@ function DetailMs({ ms: m, onUpdate, onDelete, onClose }) {
         <Field label="Beskrivelse">
           <textarea className="fl-textarea" placeholder="Beskriv milepælen..." value={desc} onChange={e=>{setDesc(e.target.value);onUpdate(m.id,"desc",e.target.value)}} />
         </Field>
+        <button className="btn btn-accent" onClick={onClose} style={{ width:"100%", marginTop:4, padding:"10px 14px", fontSize:14 }}>✓ Færdig</button>
       </div>
     </div>
   );
