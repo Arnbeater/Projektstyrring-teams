@@ -454,7 +454,12 @@ export default function App() {
     if (isDemo) {
       setWorkspaces(prev => prev.filter(w => w.id !== id));
     } else {
-      await deleteDoc(doc(fbDb, "workspaces", id));
+      try {
+        await deleteDoc(doc(fbDb, "workspaces", id));
+      } catch(e) {
+        alert("Kunne ikke slette workspace: " + e.message);
+        return;
+      }
     }
     if (activeWs?.id === id) { setActiveWs(null); setProjects([]); setActiveProjectId(null); }
   }
@@ -522,6 +527,7 @@ export default function App() {
     return <ProjectView
       workspaceId={activeWs.id} projectId={activeProjectId}
       user={user} isDemo={isDemo} projects={projects} setProjects={setProjects}
+      wsMembers={activeWs.members || []} wsMemberEmails={activeWs.memberEmails || []}
       onBack={() => setActiveProjectId(null)}
       onLogout={handleLogout} wsName={activeWs.name}
     />;
@@ -857,14 +863,7 @@ function NewProjectModal({ onCreate, onClose }) {
 // ============================================================
 // MEMBERS MODAL
 // ============================================================
-function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onTransferOwner, onClose }) {
-  const [newEmail, setNewEmail] = useState("");
-  const ref = useRef(null);
-
-  function handleAdd() {
-    if (newEmail.trim()) { onAdd(newEmail.trim()); setNewEmail(""); ref.current?.focus(); }
-  }
-
+function MembersModal({ members, createdBy, isOwner, onTransferOwner, onClose }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
       <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, width:440, maxWidth:"90vw", boxShadow:"0 4px 24px rgba(0,0,0,0.3)", animation:"slideUp 0.2s ease", maxHeight:"80vh", overflowY:"auto" }}>
@@ -873,7 +872,10 @@ function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onTransfer
           <button className="btn btn-dark btn-sm" onClick={onClose}>✕</button>
         </div>
 
-        {/* Member list */}
+        <div style={{ fontSize:11, color:"var(--text-dim)", marginBottom:16 }}>
+          Medlemmer styres på workspace-niveau via ⚙ Indstillinger. Her kan du overdrage ejerskab af projektet.
+        </div>
+
         <div style={{ marginBottom:16 }}>
           {members.map(email => (
             <div key={email} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"1px solid var(--border)" }}>
@@ -882,38 +884,14 @@ function MembersModal({ members, createdBy, isOwner, onAdd, onRemove, onTransfer
               </div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:13, fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{email}</div>
-                {email === createdBy && <div style={{ fontSize:10, color:"var(--accent)", fontFamily:"var(--font-mono)" }}>EJER</div>}
+                {email === createdBy && <div style={{ fontSize:10, color:"var(--accent)", fontFamily:"var(--font-mono)" }}>PROJEKTEJER</div>}
               </div>
               {isOwner && email !== createdBy && (
-                <div style={{ display:"flex", gap:4 }}>
-                  <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${email} til ejer af projektet?\n\nDu mister ejerrettigheder.`)) onTransferOwner(email); }} style={{ fontSize:9, padding:"2px 6px" }} title="Overdrag ejerskab">👑</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => onRemove(email)} style={{ fontSize:10, padding:"2px 8px" }}>Fjern</button>
-                </div>
+                <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${email} til ejer af projektet?\n\nDu mister ejerrettigheder.`)) onTransferOwner(email); }} style={{ fontSize:10, padding:"4px 10px" }}>👑 Gør til ejer</button>
               )}
             </div>
           ))}
         </div>
-
-        {/* Add member */}
-        {isOwner && (
-          <div>
-            <div style={{ fontSize:10, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--text-muted)", marginBottom:5 }}>Tilføj medlem</div>
-            <div style={{ display:"flex", gap:8 }}>
-              <input ref={ref} className="fl-input" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
-                placeholder="bruger@email.dk" onKeyDown={e => e.key === "Enter" && handleAdd()} style={{ flex:1 }} />
-              <button className="btn btn-accent" onClick={handleAdd}>Tilføj</button>
-            </div>
-            <div style={{ fontSize:10, color:"var(--text-dim)", marginTop:6 }}>
-              Brugeren skal have en konto i systemet (oprettet i Firebase Authentication)
-            </div>
-          </div>
-        )}
-
-        {!isOwner && (
-          <div style={{ fontSize:11, color:"var(--text-dim)", textAlign:"center", padding:"8px 0" }}>
-            Kun projektejeren kan administrere medlemmer
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1062,7 +1040,7 @@ function SharedGanttView({ data }) {
 // ============================================================
 // PROJECT VIEW — Single project (full edit)
 // ============================================================
-function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjects, onBack, onLogout, wsName }) {
+function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjects, wsMembers, wsMemberEmails, onBack, onLogout, wsName }) {
   const [projectName, setProjectName] = useState("Nyt Projekt");
   const [tasks, setTasks] = useState([]);
   const [milestones, setMilestones] = useState([]);
@@ -1280,11 +1258,11 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
             <div style={{ width:1, height:24, background:"var(--border)", margin:"0 4px" }} />
             <button className="btn btn-dark btn-sm" onClick={() => setShowMembers(true)} style={{ display:"flex", alignItems:"center", gap:6 }}>
               <div style={{ display:"flex" }}>
-                {members.slice(0, 3).map((m, i) => (
+                {wsMemberEmails.slice(0, 3).map((m, i) => (
                   <div key={i} style={{ width:20, height:20, borderRadius:4, background: m === createdBy ? "var(--accent-soft)" : "var(--surface3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:600, color: m === createdBy ? "var(--accent)" : "var(--text-muted)", marginLeft: i > 0 ? -4 : 0, border:"1.5px solid var(--surface)", position:"relative", zIndex:3-i }}>{m[0].toUpperCase()}</div>
                 ))}
               </div>
-              {members.length} medlem{members.length !== 1 ? "mer" : ""}
+              {wsMemberEmails.length} medlem{wsMemberEmails.length !== 1 ? "mer" : ""}
             </button>
             <div style={{ width:1, height:24, background:"var(--border)", margin:"0 4px" }} />
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -1550,7 +1528,7 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
 
         {/* DETAIL PANEL */}
         {selTaskObj && (
-          <DetailTask task={selTaskObj} members={members} groups={groupNames} onUpdate={updTask} onDelete={delTask} onClose={()=>setSelTask(null)} />
+          <DetailTask task={selTaskObj} members={wsMemberEmails} groups={groupNames} onUpdate={updTask} onDelete={delTask} onClose={()=>setSelTask(null)} />
         )}
         {selMsObj && (
           <DetailMs ms={selMsObj} onUpdate={updMs} onDelete={delMs} onClose={()=>setSelMs(null)} />
@@ -1558,9 +1536,9 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       </div>
 
       {/* MODALS */}
-      {showAddTask && <AddTaskModal members={members} groups={groupNames} onAdd={addTask} onClose={()=>setShowAddTask(false)} />}
+      {showAddTask && <AddTaskModal members={wsMemberEmails} groups={groupNames} onAdd={addTask} onClose={()=>setShowAddTask(false)} />}
       {showAddMs && <AddMsModal onAdd={addMilestone} onClose={()=>setShowAddMs(false)} />}
-      {showMembers && <MembersModal members={members} createdBy={createdBy} isOwner={isOwner} onAdd={addMember} onRemove={removeMember} onTransferOwner={transferOwner} onClose={() => setShowMembers(false)} />}
+      {showMembers && <MembersModal members={wsMemberEmails} createdBy={createdBy} isOwner={isOwner} onTransferOwner={transferOwner} onClose={() => setShowMembers(false)} />}
     </div>
   );
 }
