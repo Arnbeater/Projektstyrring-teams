@@ -474,6 +474,15 @@ export default function App() {
     }
   }
 
+  async function transferWsOwner(wsId, newOwnerEmail) {
+    if (isDemo) {
+      setWorkspaces(prev => prev.map(w => w.id === wsId ? { ...w, createdBy: newOwnerEmail } : w));
+      if (activeWs?.id === wsId) setActiveWs(prev => ({ ...prev, createdBy: newOwnerEmail }));
+    } else {
+      await setDoc(doc(fbDb, "workspaces", wsId), { createdBy: newOwnerEmail }, { merge: true });
+    }
+  }
+
   // Project CRUD (within workspace)
   async function createProject(name) {
     if (!activeWs) return;
@@ -567,7 +576,7 @@ export default function App() {
         </div>
 
         {showNewProject && <NewProjectModal onCreate={createProject} onClose={() => setShowNewProject(false)} />}
-        {showWsSettings && <WorkspaceSettingsModal ws={activeWs} user={user} onUpdateMembers={(m) => updateWsMembers(activeWs.id, m)} onRegenerateCode={() => regenerateInviteCode(activeWs.id)} onDelete={() => { if(confirm("Slet hele dette workspace og alle projekter?")) deleteWorkspace(activeWs.id); }} onClose={() => setShowWsSettings(false)} />}
+        {showWsSettings && <WorkspaceSettingsModal ws={activeWs} user={user} onUpdateMembers={(m) => updateWsMembers(activeWs.id, m)} onTransferOwner={(email) => transferWsOwner(activeWs.id, email)} onRegenerateCode={() => regenerateInviteCode(activeWs.id)} onDelete={() => { if(confirm("Slet hele dette workspace og alle projekter?")) deleteWorkspace(activeWs.id); }} onClose={() => setShowWsSettings(false)} />}
       </div>
     );
   }
@@ -745,12 +754,13 @@ function JoinWsModal({ onJoin, onClose }) {
   );
 }
 
-function WorkspaceSettingsModal({ ws, user, onUpdateMembers, onRegenerateCode, onDelete, onClose }) {
+function WorkspaceSettingsModal({ ws, user, onUpdateMembers, onTransferOwner, onRegenerateCode, onDelete, onClose }) {
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("member");
   const [copied, setCopied] = useState(false);
   const members = ws.members || [];
   const inviteCode = ws.inviteCode || "—";
+  const isCreator = user?.email === ws.createdBy;
 
   function addMember() {
     const email = newEmail.toLowerCase().trim();
@@ -795,23 +805,24 @@ function WorkspaceSettingsModal({ ws, user, onUpdateMembers, onRegenerateCode, o
 
         {members.map(m => (
           <div key={m.email} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:"1px solid var(--border)" }}>
-            <div style={{ width:32, height:32, borderRadius:6, background: m.role === "admin" ? "var(--accent-soft)" : "var(--surface3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:600, color: m.role === "admin" ? "var(--accent)" : "var(--text-muted)", flexShrink:0 }}>
+            <div style={{ width:32, height:32, borderRadius:6, background: m.email === ws.createdBy ? "var(--accent-soft)" : m.role === "admin" ? "rgba(75,139,245,0.12)" : "var(--surface3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:600, color: m.email === ws.createdBy ? "var(--accent)" : m.role === "admin" ? "var(--blue)" : "var(--text-muted)", flexShrink:0 }}>
               {m.email[0].toUpperCase()}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:500 }}>{m.email}</div>
-              {m.email === ws.createdBy && <div style={{ fontSize:9, color:"var(--accent)", fontFamily:"var(--font-mono)" }}>OPRETTET AF</div>}
+              {m.email === ws.createdBy && <div style={{ fontSize:9, color:"var(--accent)", fontFamily:"var(--font-mono)" }}>WORKSPACE-EJER</div>}
             </div>
             {m.email !== ws.createdBy ? (
-              <select className="fl-select" style={{ width:100, fontSize:11, padding:"4px 8px" }} value={m.role} onChange={e => changeRole(m.email, e.target.value)}>
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
+              <>
+                <select className="fl-select" style={{ width:100, fontSize:11, padding:"4px 8px" }} value={m.role} onChange={e => changeRole(m.email, e.target.value)}>
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+                {isCreator && <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${m.email} til ejer af dette workspace?\n\nDu beholder admin-rollen men kan ikke længere slette workspace'et.`)) onTransferOwner(m.email); }} style={{ fontSize:9, padding:"2px 6px" }} title="Overdrag ejerskab">👑</button>}
+                <button className="btn btn-danger btn-sm" onClick={() => removeMember(m.email)} style={{ fontSize:10, padding:"2px 8px" }}>Fjern</button>
+              </>
             ) : (
-              <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--accent)", padding:"4px 8px" }}>ADMIN</span>
-            )}
-            {m.email !== ws.createdBy && (
-              <button className="btn btn-danger btn-sm" onClick={() => removeMember(m.email)} style={{ fontSize:10, padding:"2px 8px" }}>Fjern</button>
+              <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--accent)", padding:"4px 8px" }}>EJER</span>
             )}
           </div>
         ))}
@@ -828,9 +839,11 @@ function WorkspaceSettingsModal({ ws, user, onUpdateMembers, onRegenerateCode, o
           </div>
         </div>
 
-        <div style={{ marginTop:24, paddingTop:16, borderTop:"1px solid var(--border)" }}>
-          <button className="btn btn-danger" onClick={onDelete} style={{ width:"100%" }}>Slet workspace</button>
-        </div>
+        {isCreator && (
+          <div style={{ marginTop:24, paddingTop:16, borderTop:"1px solid var(--border)" }}>
+            <button className="btn btn-danger" onClick={onDelete} style={{ width:"100%" }}>Slet workspace</button>
+          </div>
+        )}
       </div>
     </div>
   );
