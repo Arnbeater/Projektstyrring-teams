@@ -551,6 +551,17 @@ export default function App() {
 
           <button className="btn btn-accent" style={{ marginBottom:24, padding:"10px 20px", fontSize:14 }} onClick={() => setShowNewProject(true)}>+ Nyt projekt</button>
 
+          {/* Debug info - fjern når alt virker */}
+          <div style={{ marginBottom:16, padding:12, background:"var(--surface2)", borderRadius:8, border:"1px solid var(--border)", fontSize:11, fontFamily:"var(--font-mono)", color:"var(--text-muted)" }}>
+            <div>🔍 Debug: Workspace: <strong style={{color:"var(--accent)"}}>{activeWs.name}</strong> (id: {activeWs.id?.slice(0,8)}...)</div>
+            <div>Projekter fundet fra Firestore: <strong>{projects.length}</strong></div>
+            {projects.map(p => (
+              <div key={p.id} style={{marginTop:4, paddingLeft:12}}>
+                · {p.projectName} (id: {p.id?.slice(0,8)}...) — opgaver: {(p.tasks||[]).length} — oprettet af: {p.createdBy}
+              </div>
+            ))}
+          </div>
+
           {visibleProjects.length === 0 ? (
             <Empty icon="📁" title="Ingen projekter endnu" sub="Opret dit første projekt i dette workspace" />
           ) : (
@@ -592,6 +603,17 @@ export default function App() {
         <div style={{ display:"flex", gap:8, marginBottom:24 }}>
           <button className="btn btn-accent" style={{ padding:"10px 20px", fontSize:14 }} onClick={() => setShowNewWs(true)}>+ Nyt workspace</button>
           <button className="btn btn-dark" style={{ padding:"10px 20px", fontSize:14 }} onClick={() => setShowJoinWs(true)}>🔗 Join med kode</button>
+        </div>
+
+        {/* Debug info - fjern når alt virker */}
+        <div style={{ marginBottom:16, padding:12, background:"var(--surface2)", borderRadius:8, border:"1px solid var(--border)", fontSize:11, fontFamily:"var(--font-mono)", color:"var(--text-muted)" }}>
+          <div>🔍 Debug: Logget ind som: <strong style={{color:"var(--accent)"}}>{user?.email}</strong></div>
+          <div>Workspaces fundet: <strong>{workspaces.length}</strong></div>
+          {workspaces.map(ws => (
+            <div key={ws.id} style={{marginTop:4, paddingLeft:12}}>
+              · {ws.name} (id: {ws.id?.slice(0,8)}...) — memberEmails: [{(ws.memberEmails||[]).join(", ")}]
+            </div>
+          ))}
         </div>
 
         {workspaces.length === 0 ? (
@@ -1074,7 +1096,6 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
   const [showAddTask, setShowAddTask] = useState(false);
   const [showAddMs, setShowAddMs] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const savingRef = useRef(false);
 
   const projRef = () => isDemo ? null : doc(fbDb, "workspaces", workspaceId, "projects", projectId);
 
@@ -1091,7 +1112,6 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
       return;
     }
     const unsub = onSnapshot(projRef(), snap => {
-      if (savingRef.current) return;
       if (snap.exists()) {
         const data = snap.data();
         setProjectName(data.projectName || "Nyt Projekt");
@@ -1105,19 +1125,14 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
   }, [projectId, workspaceId]);
 
   async function saveProject(newTasks, newMilestones, newName) {
-    const data = {
-      projectName: newName ?? projectName,
-      tasks: newTasks ?? tasks,
-      milestones: newMilestones ?? milestones,
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.email || "unknown"
-    };
+    const data = { updatedAt: new Date().toISOString(), updatedBy: user?.email || "unknown" };
+    if (newTasks !== null) data.tasks = newTasks;
+    if (newMilestones !== null) data.milestones = newMilestones;
+    if (newName !== null) data.projectName = newName;
     if (isDemo) {
       setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...data } : p));
     } else {
-      savingRef.current = true;
       await setDoc(projRef(), data, { merge: true });
-      setTimeout(() => { savingRef.current = false; }, 500);
     }
   }
 
