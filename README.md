@@ -46,3 +46,27 @@ src/
 ## Deploy
 
 Projektet deployer automatisk via GitHub Actions på push til `main`.
+
+
+## Hvis der er merge conflict
+
+Kør disse kommandoer lokalt for at opdatere din branch med `main` og løse konflikter før merge:
+
+```bash
+git fetch origin
+git checkout <din-branch>
+git rebase origin/main
+# løs konflikter i filer
+git add <filer>
+git rebase --continue
+git push --force-with-lease
+```
+
+Alternativt kan du bruge merge i stedet for rebase:
+
+```bash
+git fetch origin
+git checkout <din-branch>
+git merge origin/main
+git push
+```
