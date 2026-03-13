@@ -2,11 +2,11 @@ const css = `
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg:#0F1117; --surface:#181B25; --surface2:#1F2330; --surface3:#272B38;
-  --border:#2A2E3D; --border-light:#353A4C;
-  --text:#E8E9ED; --text-muted:#6B7089; --text-dim:#484D63;
-  --accent:#FF6B35; --accent-soft:rgba(255,107,53,0.12); --accent-hover:#FF8255;
-  --blue:#4B8BF5; --green:#34C77B; --yellow:#F5C542; --red:#F54B5E;
+  --bg:#F6F7FB; --surface:#FFFFFF; --surface2:#F8FAFC; --surface3:#EEF2F7;
+  --border:#D5DCE8; --border-light:#C4CDDD;
+  --text:#111827; --text-muted:#4B5563; --text-dim:#6B7280;
+  --accent:#FF6B35; --accent-soft:rgba(255,107,53,0.14); --accent-hover:#EA5A26;
+  --blue:#2563EB; --green:#16A34A; --yellow:#CA8A04; --red:#DC2626;
   --font-display:'Sora',system-ui,sans-serif;
   --font-mono:'JetBrains Mono',monospace;
 }

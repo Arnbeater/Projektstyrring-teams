@@ -344,7 +344,7 @@ export default function App() {
 
   // ---- LOADING ----
   if (authLoading) return (
-    <div style={{ minHeight:"100vh", background:"#0F1117", display:"flex", alignItems:"center", justifyContent:"center" }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center" }}>
       <style>{css}</style>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:32, fontFamily:"var(--font-mono)", fontWeight:700, color:"#FF6B35", animation:"pulse 1.5s infinite" }}>PM</div>
