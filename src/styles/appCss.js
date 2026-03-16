@@ -15,6 +15,28 @@ body { font-family:var(--font-display); background:var(--bg); color:var(--text);
 ::-webkit-scrollbar { width:6px; height:6px; }
 ::-webkit-scrollbar-thumb { background:var(--border-light); border-radius:3px; }
 
+/* Focus states */
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+}
+
+/* Toast notifications */
+@keyframes toastIn { from { opacity:0; transform:translateY(8px) scale(0.96); } to { opacity:1; transform:translateY(0) scale(1); } }
+.toast-overlay {
+  position:fixed; bottom:24px; right:24px; z-index:99999;
+  padding:12px 18px; border-radius:10px; font-size:13px; font-weight:500;
+  font-family:var(--font-display); color:#fff; pointer-events:none;
+  opacity:0; transition:opacity 0.25s ease, transform 0.25s ease; transform:translateY(8px) scale(0.96);
+  max-width:340px; box-shadow:0 8px 24px rgba(0,0,0,0.15);
+}
+.toast-overlay.toast-visible { opacity:1; transform:translateY(0) scale(1); }
+.toast-success { background:linear-gradient(135deg,#16A34A,#15803D); }
+.toast-error { background:linear-gradient(135deg,#F54B5E,#DC2626); }
+.toast-info { background:linear-gradient(135deg,var(--accent),var(--accent-hover)); }
+
 .btn { font-family:var(--font-display); border:none; cursor:pointer; font-size:12px; font-weight:500; border-radius:6px; transition:all 0.12s; padding:7px 14px; white-space:nowrap; }
 .btn-dark { background:var(--surface3); color:var(--text-muted); border:1px solid var(--border); }
 .btn-dark:hover { color:var(--text); border-color:var(--border-light); }

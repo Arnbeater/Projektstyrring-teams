@@ -5,6 +5,7 @@ import { firebaseConfig, fbAuth, fbDb } from "./config/firebase";
 import { TC, STS, SS, PRI, PC, DK, GROUP_COLORS } from "./constants/project";
 import { toD, td, addD, fmtD, fmtDs, isWe, weDays, getWeeks } from "./utils/date";
 import { css } from "./styles/appCss";
+import { showToast } from "./utils/toast";
 
 // ============================================================
 // LOGIN SCREEN
@@ -282,7 +283,7 @@ export default function App() {
       try {
         await deleteDoc(doc(fbDb, "workspaces", id));
       } catch(e) {
-        alert("Kunne ikke slette workspace: " + e.message);
+        showToast("Kunne ikke slette workspace: " + e.message, "error");
         return;
       }
     }
@@ -383,7 +384,7 @@ export default function App() {
               </div>
             </div>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              {isWsAdmin && <button className="btn btn-dark btn-sm" onClick={() => setShowWsSettings(true)}>⚙ Indstillinger</button>}
+              {isWsAdmin && <button className="btn btn-dark btn-sm" onClick={() => setShowWsSettings(true)} style={{ display:"inline-flex", alignItems:"center", gap:5 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Indstillinger</button>}
               <UserBadge email={user.email} />
               <button className="btn btn-dark btn-sm" onClick={handleLogout}>Log ud</button>
             </div>
@@ -431,7 +432,7 @@ export default function App() {
 
         <div style={{ display:"flex", gap:8, marginBottom:24 }}>
           <button className="btn btn-accent" style={{ padding:"10px 20px", fontSize:14 }} onClick={() => setShowNewWs(true)}>+ Nyt workspace</button>
-          <button className="btn btn-dark" style={{ padding:"10px 20px", fontSize:14 }} onClick={() => setShowJoinWs(true)}>🔗 Join med kode</button>
+          <button className="btn btn-dark" style={{ padding:"10px 20px", fontSize:14, display:"inline-flex", alignItems:"center", gap:6 }} onClick={() => setShowJoinWs(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Join med kode</button>
         </div>
 
         {workspaces.length === 0 ? (
@@ -510,7 +511,8 @@ function ProjectCard({ p, user, onClick, onDelete }) {
         Opdateret {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString("da-DK") : "—"}
       </div>
       {isOwner && <button className="btn btn-danger btn-sm" onClick={e => { e.stopPropagation(); onDelete(); }}
-        style={{ position:"absolute", top:12, right:12, fontSize:10, padding:"2px 8px" }}>✕</button>}
+        aria-label="Slet projekt"
+        style={{ position:"absolute", top:12, right:12, padding:"3px 7px", display:"inline-flex", alignItems:"center", justifyContent:"center" }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>}
     </div>
   );
 }
@@ -643,7 +645,7 @@ function WorkspaceSettingsModal({ ws, user, onUpdateMembers, onTransferOwner, on
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
                 </select>
-                {isCreator && <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${m.email} til ejer af dette workspace?\n\nDu beholder admin-rollen men kan ikke længere slette workspace'et.`)) onTransferOwner(m.email); }} style={{ fontSize:9, padding:"2px 6px" }} title="Overdrag ejerskab">👑</button>}
+                {isCreator && <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${m.email} til ejer af dette workspace?\n\nDu beholder admin-rollen men kan ikke længere slette workspace'et.`)) onTransferOwner(m.email); }} style={{ fontSize:9, padding:"2px 6px", display:"inline-flex", alignItems:"center", gap:3 }} title="Overdrag ejerskab"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>Ejer</button>}
                 <button className="btn btn-danger btn-sm" onClick={() => removeMember(m.email)} style={{ fontSize:10, padding:"2px 8px" }}>Fjern</button>
               </>
             ) : (
@@ -725,7 +727,7 @@ function MembersModal({ members, createdBy, isOwner, onTransferOwner, onClose })
                 {email === createdBy && <div style={{ fontSize:10, color:"var(--accent)", fontFamily:"var(--font-mono)" }}>PROJEKTEJER</div>}
               </div>
               {isOwner && email !== createdBy && (
-                <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${email} til ejer af projektet?\n\nDu mister ejerrettigheder.`)) onTransferOwner(email); }} style={{ fontSize:10, padding:"4px 10px" }}>👑 Gør til ejer</button>
+                <button className="btn btn-dark btn-sm" onClick={() => { if(confirm(`Gør ${email} til ejer af projektet?\n\nDu mister ejerrettigheder.`)) onTransferOwner(email); }} style={{ fontSize:10, padding:"4px 10px", display:"inline-flex", alignItems:"center", gap:5 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>Gør til ejer</button>
               )}
             </div>
           ))}
@@ -1149,9 +1151,9 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
             };
             if (!isDemo) await setDoc(doc(fbDb, "shared", shareId), shareData);
             const url = `${window.location.origin}${window.location.pathname}?share=${shareId}`;
-            try { await navigator.clipboard.writeText(url); alert("Link kopieret! 🎉\n\n" + url + "\n\nSend det til hvem du vil. De kan se Gantt-diagrammet uden login.\n\nPS: Du ser professionel ud lige nu."); }
+            try { await navigator.clipboard.writeText(url); showToast("Link kopieret! Send det til hvem du vil.", "success"); }
             catch(e) { prompt("Kopiér dette link:", url); }
-          }}>🔗 Del Gantt</button>
+          }} style={{ display:"inline-flex", alignItems:"center", gap:5 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Del Gantt</button>
         </>}
       </div>
 
