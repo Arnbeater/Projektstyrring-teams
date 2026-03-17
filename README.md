@@ -46,3 +46,4 @@ src/
 ## Deploy
 
 Projektet deployer automatisk via GitHub Actions på push til `main`.
+
