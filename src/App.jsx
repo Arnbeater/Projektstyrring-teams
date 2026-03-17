@@ -985,8 +985,11 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
   }
 
   function addTask(name, start, end, desc, owner, group) {
+    if (!name || !name.trim()) return;
+    const s = start || td();
+    const e = end || addD(td(),7);
     updateTasks(prev => [...prev, {
-      id: Date.now(), name: name || "Ny opgave", start: start || td(), end: end || addD(td(),7),
+      id: Date.now(), name: name.trim(), start: s, end: e < s ? addD(s, 7) : e,
       status: "Ikke startet", priority: "Normal", owner: owner || "", desc: desc || "",
       group: group || "", progress: 0, color: TC[tasks.length % TC.length], createdBy: user?.email || ""
     }]);
@@ -1000,8 +1003,9 @@ function ProjectView({ workspaceId, projectId, user, isDemo, projects, setProjec
     setSelTask(null);
   }
   function addMilestone(name, date) {
+    if (!name || !name.trim()) return;
     updateMilestones(prev => [...prev, {
-      id: Date.now(), name: name || "Milepæl", date: date || td(), desc: "", color: "#F5C542"
+      id: Date.now(), name: name.trim(), date: date || td(), desc: "", color: "#F5C542"
     }]);
     setShowAddMs(false);
   }
@@ -1568,8 +1572,8 @@ function DetailTask({ task: t, members, groups, onUpdate, onDelete, onClose }) {
           </Field>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
-          <Field label="Startdato"><input type="date" className="fl-input" value={t.start} onChange={e=>onUpdate(t.id,"start",e.target.value)} /></Field>
-          <Field label="Slutdato"><input type="date" className="fl-input" value={t.end} onChange={e=>onUpdate(t.id,"end",e.target.value)} /></Field>
+          <Field label="Startdato"><input type="date" className="fl-input" value={t.start} onChange={e=>{const s=e.target.value;onUpdate(t.id,"start",s);if(t.end&&s>t.end)onUpdate(t.id,"end",addD(s,7));}} /></Field>
+          <Field label="Slutdato"><input type="date" className="fl-input" value={t.end} onChange={e=>{const en=e.target.value;if(t.start&&en<t.start)return;onUpdate(t.id,"end",en);}} /></Field>
         </div>
         <Field label="Tildelt til">
           <select className="fl-select" value={t.owner} onChange={e=>onUpdate(t.id,"owner",e.target.value)}>
@@ -1653,16 +1657,24 @@ function AddTaskModal({ members, groups, onAdd, onClose }) {
   const [owner, setOwner] = useState("");
   const [group, setGroup] = useState("");
   const [newGroup, setNewGroup] = useState("");
+  const [error, setError] = useState("");
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); }, []);
 
   const finalGroup = newGroup.trim() || group;
 
+  function handleAdd() {
+    if (!name.trim()) { setError("Opgavenavnet må ikke være tomt."); return; }
+    if (end && start && end < start) { setError("Slutdatoen kan ikke være før startdatoen."); return; }
+    onAdd(name.trim(), start, end, desc, owner, finalGroup);
+  }
+
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
       <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, width:460, maxWidth:"90vw", boxShadow:"0 4px 24px rgba(0,0,0,0.3)", animation:"slideUp 0.2s ease" }}>
         <div style={{ fontSize:18, fontWeight:600, marginBottom:16 }}>Ny opgave</div>
-        <Field label="Opgavenavn"><input ref={ref} className="fl-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Hvad skal laves?" onKeyDown={e=>e.key==="Enter"&&onAdd(name,start,end,desc,owner,finalGroup)} /></Field>
+        {error && <div style={{ background:"rgba(245,75,94,0.1)", border:"1px solid rgba(245,75,94,0.2)", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:12, color:"var(--red)" }}>{error}</div>}
+        <Field label="Opgavenavn"><input ref={ref} className="fl-input" value={name} onChange={e=>{setName(e.target.value);setError("");}} placeholder="Hvad skal laves?" onKeyDown={e=>e.key==="Enter"&&handleAdd()} /></Field>
         <Field label="Gruppe">
           <div style={{ display:"flex", gap:6 }}>
             <select className="fl-select" value={group} onChange={e=>setGroup(e.target.value)} style={{ flex:1 }}>
@@ -1674,8 +1686,8 @@ function AddTaskModal({ members, groups, onAdd, onClose }) {
         </Field>
         <Field label="Kort beskrivelse"><textarea className="fl-textarea" value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Beskriv opgaven..." rows={2} /></Field>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
-          <Field label="Start"><input type="date" className="fl-input" value={start} onChange={e=>setStart(e.target.value)} /></Field>
-          <Field label="Slut"><input type="date" className="fl-input" value={end} onChange={e=>setEnd(e.target.value)} /></Field>
+          <Field label="Start"><input type="date" className="fl-input" value={start} onChange={e=>{setStart(e.target.value);setError("");}} /></Field>
+          <Field label="Slut"><input type="date" className="fl-input" value={end} onChange={e=>{setEnd(e.target.value);setError("");}} /></Field>
         </div>
         <Field label="Tildel til">
           <select className="fl-select" value={owner} onChange={e=>setOwner(e.target.value)}>
@@ -1685,7 +1697,7 @@ function AddTaskModal({ members, groups, onAdd, onClose }) {
         </Field>
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
           <button className="btn btn-dark" onClick={onClose}>Annuller</button>
-          <button className="btn btn-accent" onClick={()=>onAdd(name,start,end,desc,owner,finalGroup)}>Tilføj</button>
+          <button className="btn btn-accent" onClick={handleAdd}>Tilføj</button>
         </div>
       </div>
     </div>
@@ -1695,18 +1707,25 @@ function AddTaskModal({ members, groups, onAdd, onClose }) {
 function AddMsModal({ onAdd, onClose }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState(td());
+  const [error, setError] = useState("");
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); }, []);
+
+  function handleAdd() {
+    if (!name.trim()) { setError("Milepælsnavnet må ikke være tomt."); return; }
+    onAdd(name.trim(), date);
+  }
 
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
       <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, width:460, maxWidth:"90vw", boxShadow:"0 4px 24px rgba(0,0,0,0.3)", animation:"slideUp 0.2s ease" }}>
         <div style={{ fontSize:18, fontWeight:600, marginBottom:16 }}>Ny milepæl</div>
-        <Field label="Milepælsnavn"><input ref={ref} className="fl-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Hvad markerer denne milepæl?" onKeyDown={e=>e.key==="Enter"&&onAdd(name,date)} /></Field>
+        {error && <div style={{ background:"rgba(245,75,94,0.1)", border:"1px solid rgba(245,75,94,0.2)", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:12, color:"var(--red)" }}>{error}</div>}
+        <Field label="Milepælsnavn"><input ref={ref} className="fl-input" value={name} onChange={e=>{setName(e.target.value);setError("");}} placeholder="Hvad markerer denne milepæl?" onKeyDown={e=>e.key==="Enter"&&handleAdd()} /></Field>
         <Field label="Dato"><input type="date" className="fl-input" value={date} onChange={e=>setDate(e.target.value)} /></Field>
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:8 }}>
           <button className="btn btn-dark" onClick={onClose}>Annuller</button>
-          <button className="btn btn-accent" onClick={()=>onAdd(name,date)}>Tilføj</button>
+          <button className="btn btn-accent" onClick={handleAdd}>Tilføj</button>
         </div>
       </div>
     </div>
